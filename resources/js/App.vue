@@ -1,5 +1,7 @@
 ﻿<script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import {
     Activity,
     BookOpen,
@@ -36,11 +38,23 @@ const sections = [
 
 const roleOptions = ['admin', 'lecturer', 'student'];
 const formulaLocales = ['en', 'hy', 'ru', 'fr'];
+const aiUsage = {
+    percent: 62,
+    generations: 184,
+    creditsUsed: '31.2k',
+    creditLimit: '50k',
+    items: [
+        { label: 'Formula translations', value: 86 },
+        { label: 'Level prompts', value: 64 },
+        { label: 'Quiz drafts', value: 34 },
+    ],
+};
 
 const activeSection = ref('overview');
 const locale = ref('en');
 const searchUsers = ref('');
 const searchFormulas = ref('');
+const formulaCategories = ref([]);
 
 const globalLoading = ref(false);
 const usersLoading = ref(false);
@@ -146,13 +160,22 @@ const isUsersSection = computed(() => activeSection.value === 'users');
 const isFormulasSection = computed(() => activeSection.value === 'formulas');
 const isLevelsSection = computed(() => activeSection.value === 'levels');
 const isOverviewSection = computed(() => activeSection.value === 'overview');
+const formulaCategoryOptions = computed(() => {
+    const categories = new Set(formulaCategories.value);
+
+    if (formulaForm.category) {
+        categories.add(formulaForm.category);
+    }
+
+    return Array.from(categories).sort((a, b) => a.localeCompare(b));
+});
 
 const topKpis = computed(() => [
     {
         title: 'Users',
         value: overview.stats.users,
         hint: `${overview.stats.admins} admin • ${overview.stats.lecturers} lecturer`,
-        tone: 'from-emerald-500/20 to-emerald-500/5 border-emerald-400/20',
+        tone: 'from-indigo-500/20 to-indigo-500/5 border-indigo-400/20',
         icon: UsersRound,
     },
     {
@@ -277,6 +300,15 @@ async function loadFormulas(page = formulasState.pagination.page || 1) {
     }
 }
 
+async function loadFormulaCategories() {
+    try {
+        const { data } = await window.axios.get('/cms-api/formula-categories');
+        formulaCategories.value = data?.items ?? [];
+    } catch (error) {
+        showError(error, 'Failed to load formula categories.');
+    }
+}
+
 async function loadLevels() {
     levelsLoading.value = true;
 
@@ -296,7 +328,7 @@ async function loadLevels() {
 async function bootstrap() {
     clearAlerts();
     globalLoading.value = true;
-    await Promise.all([loadOverview(), loadUsers(1), loadFormulas(1), loadLevels()]);
+    await Promise.all([loadOverview(), loadUsers(1), loadFormulas(1), loadFormulaCategories(), loadLevels()]);
     globalLoading.value = false;
 }
 
@@ -416,7 +448,7 @@ async function saveFormula() {
         }
 
         showFormulaModal.value = false;
-        await Promise.all([loadFormulas(formulasState.pagination.page), loadOverview()]);
+        await Promise.all([loadFormulas(formulasState.pagination.page), loadFormulaCategories(), loadOverview()]);
     } catch (error) {
         showError(error, 'Failed to save formula.');
     } finally {
@@ -432,7 +464,7 @@ async function deleteFormula(formula) {
     try {
         await window.axios.delete(`/cms-api/formulas/${formula.id}`);
         showSuccess('Formula deleted.');
-        await Promise.all([loadFormulas(formulasState.pagination.page), loadOverview()]);
+        await Promise.all([loadFormulas(formulasState.pagination.page), loadFormulaCategories(), loadOverview()]);
     } catch (error) {
         showError(error, 'Failed to delete formula.');
     }
@@ -511,6 +543,39 @@ function formatDate(dateString) {
     return date.toLocaleDateString();
 }
 
+function normalizeLatex(value) {
+    const raw = String(value ?? '').trim();
+
+    if ((raw.startsWith('$$') && raw.endsWith('$$')) || (raw.startsWith('\\[') && raw.endsWith('\\]'))) {
+        return raw.slice(2, -2).trim();
+    }
+
+    if (raw.startsWith('\\(') && raw.endsWith('\\)')) {
+        return raw.slice(2, -2).trim();
+    }
+
+    if (raw.startsWith('$') && raw.endsWith('$')) {
+        return raw.slice(1, -1).trim();
+    }
+
+    return raw;
+}
+
+function renderFormulaMarkup(value, displayMode = false) {
+    const latex = normalizeLatex(value);
+
+    if (!latex) {
+        return '<span class="text-slate-500">No formula</span>';
+    }
+
+    return katex.renderToString(latex, {
+        displayMode,
+        throwOnError: false,
+        strict: false,
+        trust: false,
+    });
+}
+
 async function logout() {
     try {
         await window.axios.post('/logout');
@@ -533,14 +598,14 @@ onMounted(() => {
         <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(99,102,241,0.22),transparent_38%),radial-gradient(circle_at_100%_0%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(14,165,233,0.12),transparent_32%)]"></div>
 
         <div class="relative z-10 mx-auto flex min-h-screen max-w-[1900px]">
-            <aside class="hidden w-72 shrink-0 border-r border-slate-800 bg-gradient-to-b from-slate-950 via-[#07251f] to-slate-950 p-5 lg:flex lg:flex-col">
+            <aside class="hidden w-72 shrink-0 border-r border-indigo-500/20 bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-950 p-5 lg:flex lg:flex-col">
                 <div class="mb-8 flex items-center gap-3">
-                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/30">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30">
                         <Sigma class="h-5 w-5" />
                     </div>
                     <div>
                         <p class="text-lg font-extrabold tracking-tight text-white">MathDashboard CMS</p>
-                        <p class="text-xs text-emerald-200/70">Content command</p>
+                        <p class="text-xs text-indigo-200/75">Content command</p>
                     </div>
                 </div>
 
@@ -551,8 +616,8 @@ onMounted(() => {
                         class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition"
                         :class="
                             activeSection === section.key
-                                ? 'bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-400/40'
-                                : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                                ? 'bg-indigo-500/20 text-indigo-100 ring-1 ring-indigo-400/40'
+                                : 'text-slate-300 hover:bg-indigo-500/10 hover:text-white'
                         "
                         type="button"
                         @click="activeSection = section.key"
@@ -562,21 +627,57 @@ onMounted(() => {
                     </button>
                 </nav>
 
-                <div class="mt-6 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-                    <div class="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-emerald-100">
-                        <span>My sprint</span>
-                        <span>78%</span>
+                <div class="mt-6 rounded-2xl border border-indigo-400/25 bg-indigo-500/10 p-4">
+                    <div class="mb-3 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-400/20 text-violet-200">
+                                <Sparkles class="h-4 w-4" />
+                            </span>
+                            <div>
+                                <p class="text-sm font-semibold text-white">AI usage</p>
+                                <p class="text-xs text-indigo-200/75">This month</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-indigo-100">{{ aiUsage.percent }}%</span>
                     </div>
-                    <p class="text-sm font-semibold text-white">Curriculum release</p>
-                    <p class="mt-1 text-xs text-emerald-200/80">12 lessons, 4 quizzes, 2 diagnostics queued.</p>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-xl border border-slate-700/70 bg-slate-950/35 p-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Generations</p>
+                            <p class="mt-1 text-lg font-extrabold text-white">{{ aiUsage.generations }}</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-700/70 bg-slate-950/35 p-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Credits</p>
+                            <p class="mt-1 text-lg font-extrabold text-white">{{ aiUsage.creditsUsed }}</p>
+                        </div>
+                    </div>
+
                     <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80">
-                        <div class="h-full w-[78%] rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"></div>
+                        <div
+                            class="h-full rounded-full bg-gradient-to-r from-indigo-400 via-violet-400 to-sky-400"
+                            :style="{ width: `${aiUsage.percent}%` }"
+                        ></div>
                     </div>
+
+                    <div class="mt-3 space-y-1.5">
+                        <div
+                            v-for="item in aiUsage.items"
+                            :key="item.label"
+                            class="flex items-center justify-between text-xs"
+                        >
+                            <span class="text-slate-400">{{ item.label }}</span>
+                            <span class="font-semibold text-indigo-100">{{ item.value }}</span>
+                        </div>
+                    </div>
+
+                    <p class="mt-3 text-xs text-slate-400">
+                        {{ aiUsage.creditsUsed }} of {{ aiUsage.creditLimit }} AI credits used.
+                    </p>
                 </div>
 
                 <div class="mt-auto rounded-2xl border border-slate-800 bg-slate-900/80 p-3">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-300/20 font-bold text-emerald-200">M</div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-400/20 font-bold text-indigo-200">M</div>
                         <div>
                             <p class="text-sm font-semibold text-white">Math admin</p>
                             <p class="text-xs text-slate-400">Owner workspace</p>
@@ -596,7 +697,7 @@ onMounted(() => {
             <main class="flex-1 p-4 sm:p-6 lg:p-8">
                 <header class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/75 px-4 py-3 sm:px-5">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-300">CMS workspace</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-300">CMS workspace</p>
                         <h1 class="text-xl font-extrabold tracking-tight text-white sm:text-2xl">{{ selectedSectionLabel }}</h1>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -604,7 +705,7 @@ onMounted(() => {
                             <Search class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                             <input
                                 type="text"
-                                class="rounded-lg border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+                                class="rounded-lg border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none"
                                 placeholder="Search lessons, cohorts, owners"
                             />
                         </label>
@@ -627,7 +728,7 @@ onMounted(() => {
                         </button>
                         <button
                             type="button"
-                            class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
+                            class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
                             @click="handleNewAction"
                         >
                             <Plus class="h-4 w-4" />
@@ -650,7 +751,7 @@ onMounted(() => {
                 <section v-if="isOverviewSection" class="space-y-5">
                     <div class="grid gap-4 xl:grid-cols-[2fr_1fr]">
                         <article class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
-                            <p class="text-xs font-bold uppercase tracking-wide text-emerald-300">Math content operations</p>
+                            <p class="text-xs font-bold uppercase tracking-wide text-indigo-300">Math content operations</p>
                             <h2 class="mt-2 max-w-3xl text-3xl font-black leading-tight text-white">
                                 Plan, review, and publish learning paths behind MathDashboard.
                             </h2>
@@ -675,7 +776,7 @@ onMounted(() => {
                         </article>
 
                         <article class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
-                            <p class="text-xs font-bold uppercase tracking-wide text-emerald-300">Formula Focus</p>
+                            <p class="text-xs font-bold uppercase tracking-wide text-indigo-300">Formula Focus</p>
                             <div class="mt-3 space-y-2">
                                 <div class="rounded-lg border border-slate-700 bg-slate-900 p-3">
                                     <p class="text-xs font-semibold uppercase text-slate-400">Algebra</p>
@@ -683,7 +784,7 @@ onMounted(() => {
                                 </div>
                                 <div class="rounded-lg border border-slate-700 bg-slate-900 p-3">
                                     <p class="text-xs font-semibold uppercase text-slate-400">Geometry</p>
-                                    <p class="mt-1 font-mono text-sm text-emerald-300">A = pi r^2</p>
+                                    <p class="mt-1 font-mono text-sm text-sky-300">A = pi r^2</p>
                                 </div>
                                 <div class="rounded-lg border border-slate-700 bg-slate-900 p-3">
                                     <p class="text-xs font-semibold uppercase text-slate-400">Probability</p>
@@ -696,7 +797,7 @@ onMounted(() => {
                                     <span class="font-semibold text-amber-300">94%</span>
                                 </div>
                                 <div class="h-2 overflow-hidden rounded-full bg-slate-800">
-                                    <div class="h-full w-[38%] bg-emerald-500"></div>
+                                    <div class="h-full w-[38%] bg-indigo-500"></div>
                                     <div class="-mt-2 h-2 w-[28%] translate-x-[38%] bg-blue-500"></div>
                                     <div class="-mt-2 h-2 w-[20%] translate-x-[66%] bg-amber-500"></div>
                                     <div class="-mt-2 h-2 w-[14%] translate-x-[86%] bg-rose-500"></div>
@@ -709,10 +810,10 @@ onMounted(() => {
                         <article class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
                             <div class="mb-4 flex items-center justify-between">
                                 <div>
-                                    <p class="text-xs font-bold uppercase tracking-wide text-emerald-300">Recent users</p>
+                                    <p class="text-xs font-bold uppercase tracking-wide text-indigo-300">Recent users</p>
                                     <h3 class="text-lg font-bold text-white">Learner and staff activity</h3>
                                 </div>
-                                <UsersRound class="h-5 w-5 text-emerald-300" />
+                                <UsersRound class="h-5 w-5 text-indigo-300" />
                             </div>
                             <div class="space-y-2">
                                 <div
@@ -732,10 +833,10 @@ onMounted(() => {
                         <article class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
                             <div class="mb-4 flex items-center justify-between">
                                 <div>
-                                    <p class="text-xs font-bold uppercase tracking-wide text-emerald-300">Recent formulas</p>
+                                    <p class="text-xs font-bold uppercase tracking-wide text-indigo-300">Recent formulas</p>
                                     <h3 class="text-lg font-bold text-white">Curriculum updates</h3>
                                 </div>
-                                <BookOpen class="h-5 w-5 text-emerald-300" />
+                                <BookOpen class="h-5 w-5 text-indigo-300" />
                             </div>
                             <div class="space-y-2">
                                 <div
@@ -744,10 +845,13 @@ onMounted(() => {
                                     class="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2"
                                 >
                                     <p class="text-sm font-semibold text-white">{{ item.name || item.category }}</p>
-                                    <p class="line-clamp-2 text-xs text-slate-400">{{ item.formula }}</p>
+                                    <div
+                                        class="mt-1 overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-100"
+                                        v-html="renderFormulaMarkup(item.formula)"
+                                    ></div>
                                     <button
                                         type="button"
-                                        class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:text-emerald-200"
+                                        class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 hover:text-indigo-200"
                                         @click="activeSection = 'formulas'"
                                     >
                                         Open in curriculum
@@ -767,7 +871,7 @@ onMounted(() => {
                                 <p class="text-sm text-slate-400">Create, edit, and remove platform members.</p>
                             </div>
                             <button
-                                class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
+                                class="inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
                                 type="button"
                                 @click="openCreateUser"
                             >
@@ -883,7 +987,7 @@ onMounted(() => {
                                 <p class="text-sm text-slate-400">Manage formula records and locale translations.</p>
                             </div>
                             <button
-                                class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
+                                class="inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
                                 type="button"
                                 @click="openCreateFormula"
                             >
@@ -940,7 +1044,12 @@ onMounted(() => {
                                     >
                                         <td class="px-4 py-3 font-medium text-white">{{ formula.name || '-' }}</td>
                                         <td class="px-4 py-3 text-slate-300">{{ formula.category }}</td>
-                                        <td class="max-w-[420px] truncate px-4 py-3 font-mono text-xs text-slate-300">{{ formula.formula }}</td>
+                                        <td class="max-w-[460px] px-4 py-3">
+                                            <div
+                                                class="max-w-[440px] overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-100"
+                                                v-html="renderFormulaMarkup(formula.formula)"
+                                            ></div>
+                                        </td>
                                         <td class="px-4 py-3 text-slate-400">{{ formatDate(formula.updated_at) }}</td>
                                         <td class="px-4 py-3 text-right">
                                             <div class="inline-flex items-center gap-1.5">
@@ -1028,7 +1137,7 @@ onMounted(() => {
                                     </div>
                                     <span
                                         class="rounded-full px-2.5 py-1 text-xs font-semibold uppercase"
-                                        :class="pathItem.active ? 'bg-emerald-500/20 text-emerald-200' : 'bg-slate-700 text-slate-300'"
+                                        :class="pathItem.active ? 'bg-indigo-500/20 text-indigo-200' : 'bg-slate-700 text-slate-300'"
                                     >
                                         {{ pathItem.active ? 'Active' : 'Inactive' }}
                                     </span>
@@ -1050,7 +1159,7 @@ onMounted(() => {
                                         </div>
                                         <span
                                             class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                                            :class="level.active ? 'bg-emerald-500/20 text-emerald-200' : 'bg-slate-700 text-slate-300'"
+                                            :class="level.active ? 'bg-indigo-500/20 text-indigo-200' : 'bg-slate-700 text-slate-300'"
                                         >
                                             {{ level.active ? 'Live' : 'Off' }}
                                         </span>
@@ -1144,7 +1253,7 @@ onMounted(() => {
                         Cancel
                     </button>
                     <button
-                        class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
                         type="button"
                         :disabled="userSubmitting"
                         @click="saveUser"
@@ -1176,11 +1285,19 @@ onMounted(() => {
                 <div class="grid gap-3 sm:grid-cols-2">
                     <label class="space-y-1">
                         <span class="text-xs font-semibold uppercase text-slate-400">Category</span>
-                        <input
+                        <select
                             v-model="formulaForm.category"
-                            type="text"
                             class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-                        />
+                        >
+                            <option value="" disabled>Select category</option>
+                            <option
+                                v-for="category in formulaCategoryOptions"
+                                :key="category"
+                                :value="category"
+                            >
+                                {{ category }}
+                            </option>
+                        </select>
                     </label>
                     <label class="space-y-1">
                         <span class="text-xs font-semibold uppercase text-slate-400">Example (optional)</span>
@@ -1201,9 +1318,20 @@ onMounted(() => {
                     ></textarea>
                 </label>
 
+                <div class="mt-3 rounded-xl border border-indigo-400/20 bg-slate-950/60 p-4">
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-indigo-300">Formula preview</span>
+                        <span class="text-[11px] font-semibold text-slate-500">Rendered from LaTeX</span>
+                    </div>
+                    <div
+                        class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 text-center text-lg text-white"
+                        v-html="renderFormulaMarkup(formulaForm.formula, true)"
+                    ></div>
+                </div>
+
                 <div class="mt-4 grid gap-3 md:grid-cols-2">
                     <div v-for="itemLocale in formulaLocales" :key="itemLocale" class="rounded-xl border border-slate-800 p-3">
-                        <p class="mb-2 text-xs font-black uppercase tracking-wide text-emerald-300">{{ itemLocale }}</p>
+                        <p class="mb-2 text-xs font-black uppercase tracking-wide text-indigo-300">{{ itemLocale }}</p>
                         <label class="mb-2 block space-y-1">
                             <span class="text-xs font-semibold uppercase text-slate-400">Name</span>
                             <input
@@ -1232,7 +1360,7 @@ onMounted(() => {
                         Cancel
                     </button>
                     <button
-                        class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
                         type="button"
                         :disabled="formulaSubmitting"
                         @click="saveFormula"
@@ -1257,7 +1385,7 @@ onMounted(() => {
                     </button>
                 </div>
 
-                <p class="mb-3 text-xs uppercase tracking-wide text-emerald-300">{{ levelForm.pathTitle }}</p>
+                <p class="mb-3 text-xs uppercase tracking-wide text-indigo-300">{{ levelForm.pathTitle }}</p>
 
                 <div class="grid gap-3 sm:grid-cols-2">
                     <label class="space-y-1">
@@ -1277,7 +1405,7 @@ onMounted(() => {
                         <input v-model="levelForm.time_limit" type="number" min="5" max="7200" placeholder="Leave empty for none" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500" />
                     </label>
                     <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 sm:col-span-2">
-                        <input v-model="levelForm.active" type="checkbox" class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-400" />
+                        <input v-model="levelForm.active" type="checkbox" class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-400" />
                         Active level
                     </label>
                 </div>
@@ -1319,7 +1447,7 @@ onMounted(() => {
                         Cancel
                     </button>
                     <button
-                        class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
                         type="button"
                         :disabled="levelSubmitting || !isLevelEditing"
                         @click="saveLevel"

@@ -88,6 +88,22 @@ class CmsController extends Controller
         ]);
     }
 
+    public function listFormulaCategories(): JsonResponse
+    {
+        $categories = Formula::query()
+            ->select('category')
+            ->whereNotNull('category')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category')
+            ->filter(fn ($category) => trim((string) $category) !== '')
+            ->values();
+
+        return response()->json([
+            'items' => $categories,
+        ]);
+    }
+
     public function storeUser(StoreCmsUserRequest $request): JsonResponse
     {
         $user = User::create([

@@ -2,17 +2,13 @@
 
 use App\Http\Controllers\Cms\CmsController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
@@ -27,6 +23,8 @@ Route::middleware('auth')->group(function () {
 
 Route::prefix('cms-api')->middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('/overview', [CmsController::class, 'overview']);
+
+    Route::get('/formula-categories', [CmsController::class, 'listFormulaCategories']);
 
     Route::get('/users', [CmsController::class, 'listUsers']);
     Route::post('/users', [CmsController::class, 'storeUser']);
