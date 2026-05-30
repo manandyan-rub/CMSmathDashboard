@@ -10,6 +10,7 @@ use App\Http\Requests\Cms\UpdateCmsLevelRequest;
 use App\Http\Requests\Cms\UpdateCmsFormulaRequest;
 use App\Http\Requests\Cms\UpdateCmsUserRequest;
 use App\Models\Formula;
+use App\Models\FormulaStep;
 use App\Models\FormulaTranslation;
 use App\Models\MathLevel;
 use App\Models\MathPath;
@@ -101,6 +102,88 @@ class CmsController extends Controller
 
         return response()->json([
             'items' => $categories,
+        ]);
+    }
+
+    public function listFormulaExplanations(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->query('search', ''));
+        $locale = $this->normalizeLocale((string) $request->query('locale', config('app.locale', 'en')));
+        $cacheFilter = (string) $request->query('cache', 'all');
+        $perPage = max(5, min(50, (int) $request->query('per_page', 10)));
+
+        $query = Formula::query()
+            ->with([
+                'translations',
+                'steps' => fn ($stepsQuery) => $stepsQuery->where('locale', $locale),
+            ])
+            ->withCount('steps');
+
+        if ($search !== '') {
+            $query->where(function ($inner) use ($search) {
+                $inner
+                    ->where('category', 'like', "%{$search}%")
+                    ->orWhere('formula', 'like', "%{$search}%")
+                    ->orWhereHas('translations', function ($translationQuery) use ($search) {
+                        $translationQuery->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        match ($cacheFilter) {
+            'cached' => $query->whereHas('steps', fn ($stepsQuery) => $stepsQuery->where('locale', $locale)),
+            'missing' => $query->whereDoesntHave('steps', fn ($stepsQuery) => $stepsQuery->where('locale', $locale)),
+            'cached_any' => $query->has('steps'),
+            'missing_any' => $query->doesntHave('steps'),
+            default => null,
+        };
+
+        $formulas = $query->latest('id')->paginate($perPage);
+
+        return response()->json([
+            'items' => collect($formulas->items())
+                ->map(fn (Formula $formula) => $this->transformFormulaExplanation($formula, $locale))
+                ->values(),
+            'pagination' => $this->pagination($formulas),
+        ]);
+    }
+
+    public function updateFormulaExplanation(Request $request, Formula $formula): JsonResponse
+    {
+        $validated = $request->validate([
+            'locale' => ['required', 'string', 'in:'.implode(',', self::LOCALES)],
+            'steps_json' => ['present', 'array'],
+            'steps_json.*.latex' => ['nullable', 'string'],
+            'steps_json.*.note' => ['nullable', 'string'],
+        ]);
+
+        $locale = $this->normalizeLocale((string) $validated['locale']);
+        $steps = collect($validated['steps_json'])
+            ->map(function (array $step): array {
+                return [
+                    'latex' => trim((string) ($step['latex'] ?? '')),
+                    'note' => trim((string) ($step['note'] ?? '')),
+                ];
+            })
+            ->filter(fn (array $step): bool => $step['latex'] !== '' || $step['note'] !== '')
+            ->values()
+            ->all();
+
+        $formulaStep = FormulaStep::updateOrCreate(
+            [
+                'formula_id' => $formula->id,
+                'locale' => $locale,
+            ],
+            [
+                'steps_json' => $steps,
+            ]
+        );
+
+        $formula->load('translations');
+        $formula->setRelation('steps', collect([$formulaStep]));
+
+        return response()->json([
+            'item' => $this->transformFormulaExplanation($formula, $locale),
         ]);
     }
 
@@ -411,6 +494,20 @@ class CmsController extends Controller
             'created_at' => $formula->created_at,
             'updated_at' => $formula->updated_at,
         ];
+    }
+
+    private function transformFormulaExplanation(Formula $formula, string $preferredLocale): array
+    {
+        $base = $this->transformFormula($formula, $preferredLocale);
+        $step = $formula->steps->first();
+
+        return array_merge($base, [
+            'locale' => $this->normalizeLocale($preferredLocale),
+            'steps_json' => $step?->steps_json ?? [],
+            'steps_count' => is_array($step?->steps_json) ? count($step->steps_json) : 0,
+            'locales_count' => (int) ($formula->steps_count ?? 0),
+            'steps_updated_at' => $step?->updated_at,
+        ]);
     }
 
     private function pagination(LengthAwarePaginator $paginator): array

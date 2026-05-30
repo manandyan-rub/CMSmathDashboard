@@ -25,6 +25,8 @@ Route::prefix('cms-api')->middleware(['auth', 'verified', 'admin'])->group(funct
     Route::get('/overview', [CmsController::class, 'overview']);
 
     Route::get('/formula-categories', [CmsController::class, 'listFormulaCategories']);
+    Route::get('/formula-explanations', [CmsController::class, 'listFormulaExplanations']);
+    Route::patch('/formula-explanations/{formula}/steps', [CmsController::class, 'updateFormulaExplanation']);
 
     Route::get('/users', [CmsController::class, 'listUsers']);
     Route::post('/users', [CmsController::class, 'storeUser']);

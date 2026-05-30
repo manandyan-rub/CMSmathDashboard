@@ -32,7 +32,7 @@ const sections = [
     { key: 'users', label: 'Users', icon: UsersRound },
     { key: 'formulas', label: 'Formulas', icon: LibraryBig },
     { key: 'levels', label: 'Math Levels', icon: ListChecks },
-    { key: 'reports', label: 'Reports', icon: Activity },
+    { key: 'reports', label: 'Explanations', icon: Activity },
     { key: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -54,12 +54,15 @@ const activeSection = ref('overview');
 const locale = ref('en');
 const searchUsers = ref('');
 const searchFormulas = ref('');
+const searchExplanations = ref('');
+const cacheFilter = ref('all');
 const formulaCategories = ref([]);
 
 const globalLoading = ref(false);
 const usersLoading = ref(false);
 const formulasLoading = ref(false);
 const levelsLoading = ref(false);
+const explanationsLoading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 
@@ -105,6 +108,18 @@ const levelsState = reactive({
     items: [],
 });
 
+const explanationsState = reactive({
+    items: [],
+    pagination: {
+        page: 1,
+        last_page: 1,
+        per_page: 10,
+        total: 0,
+        from: null,
+        to: null,
+    },
+});
+
 const showUserModal = ref(false);
 const userSubmitting = ref(false);
 const userForm = reactive({
@@ -142,6 +157,17 @@ const levelForm = reactive({
     prompt_locale: 'en',
 });
 
+const showExplanationModal = ref(false);
+const explanationSubmitting = ref(false);
+const explanationForm = reactive({
+    formulaId: null,
+    name: '',
+    category: '',
+    formula: '',
+    locale: 'en',
+    steps: [],
+});
+
 const selectedSectionLabel = computed(() => {
     return sections.find((item) => item.key === activeSection.value)?.label ?? 'Overview';
 });
@@ -150,6 +176,7 @@ const newActionLabel = computed(() => {
     if (isUsersSection.value) return 'New user';
     if (isFormulasSection.value) return 'New formula';
     if (isLevelsSection.value) return 'Reload levels';
+    if (isReportsSection.value) return 'Reload explanations';
     return 'New module';
 });
 
@@ -159,7 +186,15 @@ const isLevelEditing = computed(() => levelForm.id !== null);
 const isUsersSection = computed(() => activeSection.value === 'users');
 const isFormulasSection = computed(() => activeSection.value === 'formulas');
 const isLevelsSection = computed(() => activeSection.value === 'levels');
+const isReportsSection = computed(() => activeSection.value === 'reports');
 const isOverviewSection = computed(() => activeSection.value === 'overview');
+const cacheFilterOptions = [
+    { value: 'all', label: 'All cache' },
+    { value: 'cached', label: 'Cached here' },
+    { value: 'missing', label: 'Missing here' },
+    { value: 'cached_any', label: 'Cached anywhere' },
+    { value: 'missing_any', label: 'No cache' },
+];
 const formulaCategoryOptions = computed(() => {
     const categories = new Set(formulaCategories.value);
 
@@ -309,6 +344,30 @@ async function loadFormulaCategories() {
     }
 }
 
+async function loadExplanations(page = explanationsState.pagination.page || 1) {
+    explanationsLoading.value = true;
+    try {
+        const { data } = await window.axios.get('/cms-api/formula-explanations', {
+            params: {
+                page,
+                search: searchExplanations.value,
+                locale: locale.value,
+                cache: cacheFilter.value,
+            },
+        });
+
+        explanationsState.items = data?.items ?? [];
+        explanationsState.pagination = {
+            ...explanationsState.pagination,
+            ...(data?.pagination ?? {}),
+        };
+    } catch (error) {
+        showError(error, 'Failed to load formula explanations.');
+    } finally {
+        explanationsLoading.value = false;
+    }
+}
+
 async function loadLevels() {
     levelsLoading.value = true;
 
@@ -328,7 +387,7 @@ async function loadLevels() {
 async function bootstrap() {
     clearAlerts();
     globalLoading.value = true;
-    await Promise.all([loadOverview(), loadUsers(1), loadFormulas(1), loadFormulaCategories(), loadLevels()]);
+    await Promise.all([loadOverview(), loadUsers(1), loadFormulas(1), loadFormulaCategories(), loadExplanations(1), loadLevels()]);
     globalLoading.value = false;
 }
 
@@ -483,6 +542,63 @@ function handleNewAction() {
 
     if (isLevelsSection.value) {
         loadLevels();
+        return;
+    }
+
+    if (isReportsSection.value) {
+        loadExplanations();
+    }
+}
+
+function openEditExplanation(item) {
+    clearAlerts();
+
+    explanationForm.formulaId = item.id;
+    explanationForm.name = item.name || item.category || 'Formula';
+    explanationForm.category = item.category || '';
+    explanationForm.formula = item.formula || '';
+    explanationForm.locale = locale.value;
+    explanationForm.steps = Array.isArray(item.steps_json) && item.steps_json.length > 0
+        ? item.steps_json.map((step) => ({
+            latex: step?.latex ?? '',
+            note: step?.note ?? '',
+        }))
+        : [{ latex: '', note: '' }];
+
+    showExplanationModal.value = true;
+}
+
+function addExplanationStep() {
+    explanationForm.steps.push({ latex: '', note: '' });
+}
+
+function removeExplanationStep(index) {
+    explanationForm.steps.splice(index, 1);
+
+    if (explanationForm.steps.length === 0) {
+        addExplanationStep();
+    }
+}
+
+async function saveExplanation() {
+    if (!explanationForm.formulaId) return;
+
+    explanationSubmitting.value = true;
+    clearAlerts();
+
+    try {
+        await window.axios.patch(`/cms-api/formula-explanations/${explanationForm.formulaId}/steps`, {
+            locale: explanationForm.locale,
+            steps_json: explanationForm.steps,
+        });
+
+        showExplanationModal.value = false;
+        showSuccess('Formula explanation saved.');
+        await loadExplanations(explanationsState.pagination.page);
+    } catch (error) {
+        showError(error, 'Failed to save formula explanation.');
+    } finally {
+        explanationSubmitting.value = false;
     }
 }
 
@@ -585,7 +701,7 @@ async function logout() {
 }
 
 watch(locale, async () => {
-    await Promise.all([loadOverview(), loadFormulas(1), loadLevels()]);
+    await Promise.all([loadOverview(), loadFormulas(1), loadExplanations(1), loadLevels()]);
 });
 
 onMounted(() => {
@@ -1101,6 +1217,158 @@ onMounted(() => {
                     </div>
                 </section>
 
+                <section v-else-if="isReportsSection" class="space-y-4">
+                    <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-bold text-white">Formula Explanations</h2>
+                                <p class="text-sm text-slate-400">Edit step-by-step formula explanations for each language.</p>
+                            </div>
+                            <button
+                                class="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                                type="button"
+                                @click="loadExplanations(1)"
+                            >
+                                <RefreshCcw class="h-4 w-4" />
+                                Reload explanations
+                            </button>
+                        </div>
+
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <label class="relative min-w-[240px] flex-1">
+                                <Search class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                                <input
+                                    v-model="searchExplanations"
+                                    type="search"
+                                    class="w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-white placeholder:text-slate-500"
+                                    placeholder="Search by formula, category, explanation name"
+                                    @keyup.enter="loadExplanations(1)"
+                                />
+                            </label>
+                            <select
+                                v-model="cacheFilter"
+                                class="min-w-[170px] rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-white"
+                                @change="loadExplanations(1)"
+                            >
+                                <option v-for="option in cacheFilterOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                            <button
+                                class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                                type="button"
+                                @click="loadExplanations(1)"
+                            >
+                                Search
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/75">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-800 text-sm">
+                                <thead class="bg-slate-900">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-400">Formula</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-400">Category</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-400">Explanation</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-400">Cache</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-400">Locale</th>
+                                        <th class="px-4 py-3 text-right font-semibold text-slate-400">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-if="explanationsLoading">
+                                        <td class="px-4 py-4 text-slate-500" colspan="6">Loading explanations...</td>
+                                    </tr>
+                                    <tr v-else-if="explanationsState.items.length === 0">
+                                        <td class="px-4 py-4 text-slate-500" colspan="6">No formulas found.</td>
+                                    </tr>
+                                    <tr
+                                        v-for="item in explanationsState.items"
+                                        v-else
+                                        :key="item.id"
+                                        class="border-t border-slate-800 align-top"
+                                    >
+                                        <td class="max-w-[360px] px-4 py-3">
+                                            <p class="font-semibold text-white">{{ item.name || 'Untitled formula' }}</p>
+                                            <div
+                                                class="mt-2 max-w-[340px] overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-100"
+                                                v-html="renderFormulaMarkup(item.formula)"
+                                            ></div>
+                                        </td>
+                                        <td class="px-4 py-3 text-slate-300">{{ item.category }}</td>
+                                        <td class="px-4 py-3">
+                                            <div v-if="item.steps_count > 0" class="space-y-2">
+                                                <p class="text-xs font-semibold uppercase tracking-wide text-indigo-300">
+                                                    {{ item.steps_count }} editable step{{ item.steps_count === 1 ? '' : 's' }}
+                                                </p>
+                                                <p class="line-clamp-2 max-w-[420px] text-xs text-slate-400">
+                                                    {{ item.steps_json?.[0]?.note || 'Only formula markup has been added so far.' }}
+                                                </p>
+                                            </div>
+                                            <div v-else class="rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-500">
+                                                No explanation yet for this locale.
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span
+                                                class="rounded-full px-2.5 py-1 text-xs font-semibold uppercase"
+                                                :class="item.steps_count > 0 ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-200'"
+                                            >
+                                                {{ item.steps_count > 0 ? 'Cached' : 'Missing' }}
+                                            </span>
+                                            <p class="mt-2 text-xs text-slate-500">
+                                                {{ item.locales_count }} locale cache{{ item.locales_count === 1 ? '' : 's' }}
+                                            </p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="rounded-full bg-indigo-500/20 px-2.5 py-1 text-xs font-semibold uppercase text-indigo-200">
+                                                {{ locale }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <button
+                                                class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+                                                type="button"
+                                                @click="openEditExplanation(item)"
+                                            >
+                                                <SquarePen class="h-3.5 w-3.5" />
+                                                Edit explanation
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex items-center justify-between border-t border-slate-800 px-4 py-3 text-sm">
+                            <p class="text-slate-400">
+                                Showing {{ explanationsState.pagination.from || 0 }}-{{ explanationsState.pagination.to || 0 }} of
+                                {{ explanationsState.pagination.total }} formulas
+                            </p>
+                            <div class="inline-flex gap-2">
+                                <button
+                                    class="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                                    type="button"
+                                    :disabled="explanationsState.pagination.page <= 1"
+                                    @click="loadExplanations(explanationsState.pagination.page - 1)"
+                                >
+                                    Prev
+                                </button>
+                                <button
+                                    class="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                                    type="button"
+                                    :disabled="explanationsState.pagination.page >= explanationsState.pagination.last_page"
+                                    @click="loadExplanations(explanationsState.pagination.page + 1)"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section v-else-if="isLevelsSection" class="space-y-4">
                     <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -1368,6 +1636,117 @@ onMounted(() => {
                         <CheckCircle2 class="h-4 w-4" />
                         {{ formulaSubmitting ? 'Saving...' : 'Save formula' }}
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <div
+            v-if="showExplanationModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            @click.self="showExplanationModal = false"
+        >
+            <div class="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl shadow-black/40">
+                <div class="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-wide text-indigo-300">Formula explanation</p>
+                        <h3 class="mt-1 text-lg font-bold text-white">{{ explanationForm.name }}</h3>
+                        <p class="mt-1 text-sm text-slate-400">{{ explanationForm.category }} • {{ explanationForm.locale.toUpperCase() }}</p>
+                    </div>
+                    <button class="rounded-lg p-1 text-slate-400 hover:bg-slate-800" type="button" @click="showExplanationModal = false">
+                        <X class="h-4 w-4" />
+                    </button>
+                </div>
+
+                <div class="rounded-xl border border-indigo-400/20 bg-slate-950/60 p-4">
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-indigo-300">Formula preview</span>
+                        <span class="rounded-full bg-indigo-500/20 px-2.5 py-1 text-xs font-semibold uppercase text-indigo-200">
+                            {{ explanationForm.locale }}
+                        </span>
+                    </div>
+                    <div
+                        class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 text-center text-lg text-white"
+                        v-html="renderFormulaMarkup(explanationForm.formula, true)"
+                    ></div>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                    <article
+                        v-for="(step, index) in explanationForm.steps"
+                        :key="index"
+                        class="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                    >
+                        <div class="mb-3 flex items-center justify-between gap-3">
+                            <h4 class="text-sm font-bold text-white">Step {{ index + 1 }}</h4>
+                            <button
+                                class="inline-flex items-center gap-1 rounded-lg border border-rose-400/40 px-2 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/10"
+                                type="button"
+                                @click="removeExplanationStep(index)"
+                            >
+                                <Trash2 class="h-3.5 w-3.5" />
+                                Remove
+                            </button>
+                        </div>
+
+                        <div class="grid gap-3 lg:grid-cols-[1fr_1fr]">
+                            <label class="space-y-1">
+                                <span class="text-xs font-semibold uppercase text-slate-400">LaTeX or formula line</span>
+                                <textarea
+                                    v-model="step.latex"
+                                    rows="3"
+                                    class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white placeholder:text-slate-500"
+                                    placeholder="\frac{x}{2} = 4"
+                                ></textarea>
+                            </label>
+                            <div class="space-y-1">
+                                <span class="text-xs font-semibold uppercase text-slate-400">Rendered preview</span>
+                                <div
+                                    class="min-h-[86px] overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 text-center text-base text-white"
+                                    v-html="renderFormulaMarkup(step.latex, true)"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <label class="mt-3 block space-y-1">
+                            <span class="text-xs font-semibold uppercase text-slate-400">Explanation text</span>
+                            <textarea
+                                v-model="step.note"
+                                rows="3"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                                placeholder="Explain what happens in this step..."
+                            ></textarea>
+                        </label>
+                    </article>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                        class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                        type="button"
+                        @click="addExplanationStep"
+                    >
+                        <Plus class="h-4 w-4" />
+                        Add step
+                    </button>
+
+                    <div class="flex justify-end gap-2">
+                        <button
+                            class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+                            type="button"
+                            @click="showExplanationModal = false"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
+                            type="button"
+                            :disabled="explanationSubmitting"
+                            @click="saveExplanation"
+                        >
+                            <CheckCircle2 class="h-4 w-4" />
+                            {{ explanationSubmitting ? 'Saving...' : 'Save explanation' }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
