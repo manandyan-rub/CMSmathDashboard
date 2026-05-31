@@ -91,6 +91,45 @@ class CmsFormulaExplanationTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_fetch_single_formula_explanation_for_selected_locale(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+        ]);
+
+        $formula = Formula::create([
+            'category' => 'algebra:equations',
+            'formula' => 'ax+b=0',
+        ]);
+
+        FormulaTranslation::create([
+            'formula_id' => $formula->id,
+            'locale' => 'fr',
+            'name' => 'Equation lineaire',
+            'description' => 'French description',
+        ]);
+
+        FormulaStep::create([
+            'formula_id' => $formula->id,
+            'locale' => 'fr',
+            'steps_json' => [
+                [
+                    'latex' => 'ax=-b',
+                    'note' => 'Move the constant.',
+                ],
+            ],
+        ]);
+
+        $response = $this->actingAs($admin)->getJson("/cms-api/formula-explanations/{$formula->id}?locale=fr");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('item.id', $formula->id)
+            ->assertJsonPath('item.locale', 'fr')
+            ->assertJsonPath('item.name', 'Equation lineaire')
+            ->assertJsonPath('item.steps_json.0.note', 'Move the constant.');
+    }
+
     public function test_admin_can_filter_formula_explanations_by_cache_status(): void
     {
         $admin = User::factory()->create([

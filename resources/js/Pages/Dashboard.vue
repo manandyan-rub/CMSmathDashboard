@@ -1,5 +1,5 @@
 <script setup>
-import CmsAdmin from '@/App.vue';
+import CmsAdmin from './Cms/Dashboard.vue';
 import { Head } from '@inertiajs/vue3';
 </script>
 

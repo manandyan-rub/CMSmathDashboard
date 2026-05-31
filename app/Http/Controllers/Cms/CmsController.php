@@ -148,6 +148,22 @@ class CmsController extends Controller
         ]);
     }
 
+    public function showFormulaExplanation(Request $request, Formula $formula): JsonResponse
+    {
+        $locale = $this->normalizeLocale((string) $request->query('locale', config('app.locale', 'en')));
+
+        $formula
+            ->load([
+                'translations',
+                'steps' => fn ($stepsQuery) => $stepsQuery->where('locale', $locale),
+            ])
+            ->loadCount('steps');
+
+        return response()->json([
+            'item' => $this->transformFormulaExplanation($formula, $locale),
+        ]);
+    }
+
     public function updateFormulaExplanation(Request $request, Formula $formula): JsonResponse
     {
         $validated = $request->validate([
@@ -180,6 +196,7 @@ class CmsController extends Controller
         );
 
         $formula->load('translations');
+        $formula->loadCount('steps');
         $formula->setRelation('steps', collect([$formulaStep]));
 
         return response()->json([
