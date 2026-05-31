@@ -20,6 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class CmsController extends Controller
@@ -253,6 +255,50 @@ class CmsController extends Controller
         }
 
         $user->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function updateCurrentProfile(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique(User::class)->ignore($user->id),
+            ],
+        ]);
+
+        $user->fill($validated);
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
+        }
+
+        $user->save();
+
+        return response()->json([
+            'item' => $this->currentUserPayload($user->fresh()),
+        ]);
+    }
+
+    public function updateCurrentPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', Password::defaults(), 'confirmed'],
+        ]);
+
+        $request->user()->update([
+            'password' => Hash::make($validated['password']),
+        ]);
 
         return response()->json(['ok' => true]);
     }
@@ -537,6 +583,19 @@ class CmsController extends Controller
             'from' => $paginator->firstItem(),
             'to' => $paginator->lastItem(),
         ];
+    }
+
+    private function currentUserPayload(User $user): array
+    {
+        return $user->only([
+            'id',
+            'name',
+            'email',
+            'role',
+            'email_verified_at',
+            'created_at',
+            'updated_at',
+        ]);
     }
 
     private function normalizeLocale(string $locale): string

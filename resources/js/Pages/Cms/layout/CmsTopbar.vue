@@ -1,5 +1,5 @@
 <script setup>
-import { Plus, RefreshCcw, Search } from '@lucide/vue';
+import { Moon, Plus, RefreshCcw, Search, Sun } from '@lucide/vue';
 
 defineProps({
     selectedSectionLabel: {
@@ -10,13 +10,21 @@ defineProps({
         type: String,
         required: true,
     },
+    showNewAction: {
+        type: Boolean,
+        default: true,
+    },
     locale: {
+        type: String,
+        required: true,
+    },
+    theme: {
         type: String,
         required: true,
     },
 });
 
-const emit = defineEmits(['update:locale', 'refresh', 'newAction']);
+const emit = defineEmits(['update:locale', 'refresh', 'newAction', 'toggleTheme']);
 </script>
 
 <template>
@@ -53,6 +61,17 @@ const emit = defineEmits(['update:locale', 'refresh', 'newAction']);
                 Refresh
             </button>
             <button
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+                type="button"
+                :title="theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+                @click="emit('toggleTheme')"
+            >
+                <Moon v-if="theme === 'light'" class="h-4 w-4" />
+                <Sun v-else class="h-4 w-4" />
+                {{ theme === 'light' ? 'Dark' : 'Light' }}
+            </button>
+            <button
+                v-if="showNewAction"
                 type="button"
                 class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
                 @click="emit('newAction')"

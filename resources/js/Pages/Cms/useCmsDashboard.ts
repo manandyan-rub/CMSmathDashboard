@@ -9,6 +9,7 @@ import {
 import { useFormulaExplanations } from './formulas/useFormulaExplanations';
 import { useFormulaLibrary } from './formulas/useFormulaLibrary';
 import { useLevels } from './levels/useLevels';
+import { useSettings } from './settings/useSettings';
 import { useAlerts } from './shared/useAlerts';
 import { useStats } from './stats/useStats';
 import { useUsers } from './users/useUsers';
@@ -17,6 +18,8 @@ import { renderFormulaMarkup } from './utils/formulaRenderer';
 export function useCmsDashboard() {
     const activeSection = ref('overview');
     const locale = ref('en');
+    const storedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('cms-theme') : null;
+    const theme = ref(storedTheme === 'light' ? 'light' : 'dark');
     const globalLoading = ref(false);
 
     const alerts = useAlerts();
@@ -50,6 +53,11 @@ export function useCmsDashboard() {
         showSuccess: alerts.showSuccess,
         loadOverview: stats.loadOverview,
     });
+    const settings = useSettings({
+        clearAlerts: alerts.clearAlerts,
+        showError: alerts.showError,
+        showSuccess: alerts.showSuccess,
+    });
 
     const selectedSectionLabel = computed(() => {
         return cmsSections.find((item) => item.key === activeSection.value)?.label ?? 'Overview';
@@ -59,6 +67,9 @@ export function useCmsDashboard() {
     const isLevelsSection = computed(() => activeSection.value === 'levels');
     const isReportsSection = computed(() => activeSection.value === 'reports');
     const isOverviewSection = computed(() => activeSection.value === 'overview');
+    const isSettingsSection = computed(() => activeSection.value === 'settings');
+    const showNewAction = computed(() => !isUsersSection.value && !isSettingsSection.value);
+    const themeClass = computed(() => (theme.value === 'light' ? 'cms-theme-light' : 'cms-theme-dark'));
     const newActionLabel = computed(() => {
         if (isUsersSection.value) return 'New user';
         if (isFormulasSection.value) return 'New formula';
@@ -112,8 +123,16 @@ export function useCmsDashboard() {
         try {
             await window.axios.post('/logout');
         } finally {
-            window.location.href = '/login';
+        window.location.href = '/login';
         }
+    }
+
+    function setTheme(nextTheme) {
+        theme.value = nextTheme === 'light' ? 'light' : 'dark';
+    }
+
+    function toggleTheme() {
+        setTheme(theme.value === 'light' ? 'dark' : 'light');
     }
 
     watch(locale, async () => {
@@ -124,6 +143,13 @@ export function useCmsDashboard() {
             levels.loadLevels(),
         ]);
     });
+
+    watch(theme, (value) => {
+        if (typeof window === 'undefined') return;
+
+        window.localStorage.setItem('cms-theme', value);
+        document.documentElement.dataset.cmsTheme = value;
+    }, { immediate: true });
 
     onMounted(() => {
         bootstrap();
@@ -137,6 +163,8 @@ export function useCmsDashboard() {
         cacheFilterOptions,
         activeSection,
         locale,
+        theme,
+        themeClass,
         globalLoading,
         selectedSectionLabel,
         newActionLabel,
@@ -145,6 +173,10 @@ export function useCmsDashboard() {
         isLevelsSection,
         isReportsSection,
         isOverviewSection,
+        isSettingsSection,
+        showNewAction,
+        setTheme,
+        toggleTheme,
         formatDate,
         renderFormulaMarkup,
         bootstrap,
@@ -156,5 +188,6 @@ export function useCmsDashboard() {
         ...formulas,
         ...explanations,
         ...levels,
+        ...settings,
     };
 }

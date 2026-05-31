@@ -14,13 +14,17 @@ defineProps({
         type: Object,
         required: true,
     },
+    currentUser: {
+        type: Object,
+        required: true,
+    },
 });
 
 const emit = defineEmits(['update:activeSection', 'logout']);
 </script>
 
 <template>
-    <aside class="hidden w-72 shrink-0 border-r border-indigo-500/20 bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-950 p-5 lg:flex lg:flex-col">
+    <aside class="cms-sidebar hidden w-72 shrink-0 border-r border-indigo-500/20 bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-950 p-5 lg:flex lg:flex-col">
         <div class="mb-8 flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30">
                 <Sigma class="h-5 w-5" />
@@ -95,10 +99,12 @@ const emit = defineEmits(['update:activeSection', 'logout']);
 
         <div class="mt-auto rounded-2xl border border-slate-800 bg-slate-900/80 p-3">
             <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-400/20 font-bold text-indigo-200">M</div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-400/20 font-bold text-indigo-200">
+                    {{ (currentUser.name || 'M').charAt(0).toUpperCase() }}
+                </div>
                 <div>
-                    <p class="text-sm font-semibold text-white">Math admin</p>
-                    <p class="text-xs text-slate-400">Owner workspace</p>
+                    <p class="text-sm font-semibold text-white">{{ currentUser.name || 'Math admin' }}</p>
+                    <p class="text-xs capitalize text-slate-400">{{ currentUser.role || 'owner' }} workspace</p>
                 </div>
             </div>
             <button

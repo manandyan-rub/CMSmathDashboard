@@ -23,6 +23,8 @@ Route::middleware('auth')->group(function () {
 
 Route::prefix('cms-api')->middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('/overview', [CmsController::class, 'overview']);
+    Route::patch('/profile', [CmsController::class, 'updateCurrentProfile']);
+    Route::put('/profile/password', [CmsController::class, 'updateCurrentPassword']);
 
     Route::get('/formula-categories', [CmsController::class, 'listFormulaCategories']);
     Route::get('/formula-explanations', [CmsController::class, 'listFormulaExplanations']);

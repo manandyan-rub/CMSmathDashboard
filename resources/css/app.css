@@ -1,3 +1,154 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+    .cms-theme-light {
+        background: #f6f8fb !important;
+        color: #0f172a !important;
+    }
+
+    .cms-theme-light .cms-theme-aura {
+        background:
+            radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.13), transparent 34%),
+            radial-gradient(circle at 100% 0%, rgba(20, 184, 166, 0.12), transparent 28%),
+            linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.96)) !important;
+    }
+
+    .cms-theme-light .cms-sidebar {
+        background: linear-gradient(180deg, #ffffff 0%, #eef2ff 52%, #ecfdf5 100%) !important;
+        border-color: rgba(99, 102, 241, 0.18) !important;
+    }
+
+    .cms-theme-light .bg-slate-950,
+    .cms-theme-light .bg-slate-950\/35,
+    .cms-theme-light .bg-slate-950\/50,
+    .cms-theme-light .bg-slate-950\/60,
+    .cms-theme-light .bg-slate-950\/70,
+    .cms-theme-light .bg-slate-900,
+    .cms-theme-light .bg-slate-900\/75,
+    .cms-theme-light .bg-slate-900\/80 {
+        background-color: rgba(255, 255, 255, 0.94) !important;
+    }
+
+    .cms-theme-light .fixed.bg-slate-950\/70 {
+        background-color: rgba(15, 23, 42, 0.38) !important;
+    }
+
+    .cms-theme-light .bg-slate-800 {
+        background-color: #e2e8f0 !important;
+    }
+
+    .cms-theme-light .bg-slate-700 {
+        background-color: #cbd5e1 !important;
+    }
+
+    .cms-theme-light .bg-indigo-500\/10 {
+        background-color: rgba(99, 102, 241, 0.1) !important;
+    }
+
+    .cms-theme-light .bg-indigo-500\/15,
+    .cms-theme-light .bg-indigo-500\/20 {
+        background-color: rgba(99, 102, 241, 0.14) !important;
+    }
+
+    .cms-theme-light .bg-emerald-500\/10,
+    .cms-theme-light .bg-emerald-500\/15 {
+        background-color: rgba(16, 185, 129, 0.12) !important;
+    }
+
+    .cms-theme-light .bg-amber-500\/10,
+    .cms-theme-light .bg-amber-500\/15 {
+        background-color: rgba(245, 158, 11, 0.14) !important;
+    }
+
+    .cms-theme-light .bg-rose-500\/10,
+    .cms-theme-light .bg-rose-500\/15 {
+        background-color: rgba(244, 63, 94, 0.12) !important;
+    }
+
+    .cms-theme-light .border-slate-800,
+    .cms-theme-light .border-slate-700,
+    .cms-theme-light .border-slate-700\/70,
+    .cms-theme-light .border-indigo-400\/20,
+    .cms-theme-light .border-indigo-400\/25,
+    .cms-theme-light .border-indigo-500\/20 {
+        border-color: #dbe4f0 !important;
+    }
+
+    .cms-theme-light .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+        border-color: #dbe4f0 !important;
+    }
+
+    .cms-theme-light .text-white,
+    .cms-theme-light .text-slate-100 {
+        color: #0f172a !important;
+    }
+
+    .cms-theme-light .text-slate-200,
+    .cms-theme-light .text-slate-300 {
+        color: #334155 !important;
+    }
+
+    .cms-theme-light .text-slate-400 {
+        color: #64748b !important;
+    }
+
+    .cms-theme-light .text-slate-500 {
+        color: #7c8da5 !important;
+    }
+
+    .cms-theme-light .text-indigo-100,
+    .cms-theme-light .text-indigo-200,
+    .cms-theme-light .text-indigo-300 {
+        color: #4f46e5 !important;
+    }
+
+    .cms-theme-light .text-violet-200 {
+        color: #6d28d9 !important;
+    }
+
+    .cms-theme-light .text-emerald-200,
+    .cms-theme-light .text-emerald-300 {
+        color: #047857 !important;
+    }
+
+    .cms-theme-light .text-amber-200,
+    .cms-theme-light .text-amber-300 {
+        color: #b45309 !important;
+    }
+
+    .cms-theme-light .text-rose-200,
+    .cms-theme-light .text-rose-300 {
+        color: #be123c !important;
+    }
+
+    .cms-theme-light .text-blue-300,
+    .cms-theme-light .text-sky-300 {
+        color: #0369a1 !important;
+    }
+
+    .cms-theme-light input,
+    .cms-theme-light select,
+    .cms-theme-light textarea {
+        background-color: #ffffff !important;
+        border-color: #cbd5e1 !important;
+        color: #0f172a !important;
+    }
+
+    .cms-theme-light input::placeholder,
+    .cms-theme-light textarea::placeholder {
+        color: #94a3b8 !important;
+    }
+
+    .cms-theme-light button.bg-indigo-500,
+    .cms-theme-light .bg-indigo-500.text-white,
+    .cms-theme-light .bg-emerald-500.text-white,
+    .cms-theme-light .bg-gradient-to-br.text-white {
+        color: #ffffff !important;
+    }
+
+    .cms-theme-light .shadow-black\/40 {
+        --tw-shadow-color: rgba(15, 23, 42, 0.16) !important;
+    }
+}

@@ -7,6 +7,7 @@ import CmsSidebar from './layout/CmsSidebar.vue';
 import CmsTopbar from './layout/CmsTopbar.vue';
 import LevelModal from './levels/partials/LevelModal.vue';
 import LevelsPage from './levels/LevelsPage.vue';
+import SettingsPage from './settings/SettingsPage.vue';
 import ComingSoonSection from './shared/ComingSoonSection.vue';
 import StatsPage from './stats/StatsPage.vue';
 import UserModal from './users/partials/UserModal.vue';
@@ -20,6 +21,8 @@ const {
     aiUsage,
     activeSection,
     locale,
+    theme,
+    themeClass,
     searchUsers,
     searchFormulas,
     searchExplanations,
@@ -59,6 +62,8 @@ const {
     isLevelsSection,
     isReportsSection,
     isOverviewSection,
+    showNewAction,
+    isSettingsSection,
     cacheFilterOptions,
     formulaCategoryOptions,
     topKpis,
@@ -83,6 +88,17 @@ const {
     saveExplanation,
     openEditLevel,
     saveLevel,
+    currentUser,
+    profileForm,
+    profileErrors,
+    profileSubmitting,
+    passwordForm,
+    passwordErrors,
+    passwordSubmitting,
+    saveProfile,
+    savePassword,
+    setTheme,
+    toggleTheme,
     formatDate,
     renderFormulaMarkup,
     logout,
@@ -90,14 +106,15 @@ const {
 </script>
 
 <template>
-    <div class="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(99,102,241,0.22),transparent_38%),radial-gradient(circle_at_100%_0%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(14,165,233,0.12),transparent_32%)]"></div>
+    <div class="cms-theme-shell relative min-h-screen overflow-hidden bg-slate-950 text-slate-100" :class="themeClass">
+        <div class="cms-theme-aura pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(99,102,241,0.22),transparent_38%),radial-gradient(circle_at_100%_0%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(14,165,233,0.12),transparent_32%)]"></div>
 
         <div class="relative z-10 mx-auto flex min-h-screen max-w-[1900px]">
             <CmsSidebar
                 v-model:active-section="activeSection"
                 :sections="sections"
                 :ai-usage="aiUsage"
+                :current-user="currentUser"
                 @logout="logout"
             />
 
@@ -106,7 +123,10 @@ const {
                     v-model:locale="locale"
                     :selected-section-label="selectedSectionLabel"
                     :new-action-label="newActionLabel"
+                    :show-new-action="showNewAction"
+                    :theme="theme"
                     @refresh="bootstrap"
+                    @toggle-theme="toggleTheme"
                     @new-action="handleNewAction"
                 />
 
@@ -178,6 +198,22 @@ const {
                     :levels-loading="levelsLoading"
                     @reload="loadLevels"
                     @edit="openEditLevel"
+                />
+
+                <SettingsPage
+                    v-else-if="isSettingsSection"
+                    :current-user="currentUser"
+                    :profile-form="profileForm"
+                    :profile-errors="profileErrors"
+                    :profile-submitting="profileSubmitting"
+                    :password-form="passwordForm"
+                    :password-errors="passwordErrors"
+                    :password-submitting="passwordSubmitting"
+                    :theme="theme"
+                    :format-date="formatDate"
+                    @save-profile="saveProfile"
+                    @save-password="savePassword"
+                    @set-theme="setTheme"
                 />
 
                 <ComingSoonSection v-else :selected-section-label="selectedSectionLabel" />
