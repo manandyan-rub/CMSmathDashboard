@@ -25,6 +25,8 @@ Route::prefix('cms-api')->middleware(['auth', 'verified', 'admin'])->group(funct
     Route::get('/overview', [CmsController::class, 'overview']);
     Route::patch('/profile', [CmsController::class, 'updateCurrentProfile']);
     Route::put('/profile/password', [CmsController::class, 'updateCurrentPassword']);
+    Route::get('/generation-logs', [CmsController::class, 'listGenerationLogs']);
+    Route::get('/generation-logs/{generationLog}', [CmsController::class, 'showGenerationLog']);
 
     Route::get('/formula-categories', [CmsController::class, 'listFormulaCategories']);
     Route::get('/formula-explanations', [CmsController::class, 'listFormulaExplanations']);
@@ -44,6 +46,8 @@ Route::prefix('cms-api')->middleware(['auth', 'verified', 'admin'])->group(funct
     Route::get('/levels', [CmsController::class, 'listLevels']);
     Route::patch('/levels/{level}', [CmsController::class, 'updateLevel']);
     Route::patch('/levels/{level}/prompt', [CmsController::class, 'updateLevelPrompt']);
+    Route::post('/levels/{level}/prompt-preview', [CmsController::class, 'previewLevelPrompt'])
+        ->middleware('throttle:cms-level-preview');
 });
 
 require __DIR__.'/auth.php';

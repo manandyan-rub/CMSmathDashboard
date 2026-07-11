@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bot,
   LayoutDashboard,
   LibraryBig,
   ListChecks,
@@ -18,6 +19,7 @@ export const cmsSections: CmsSection[] = [
   { key: 'users', label: 'Users', icon: UsersRound },
   { key: 'formulas', label: 'Formulas', icon: LibraryBig },
   { key: 'levels', label: 'Math Levels', icon: ListChecks },
+  { key: 'generation-logs', label: 'Generation Logs', icon: Bot },
   { key: 'reports', label: 'Explanations', icon: Activity },
   { key: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -32,15 +34,3 @@ export const cacheFilterOptions = [
   { value: 'cached_any', label: 'Cached anywhere' },
   { value: 'missing_any', label: 'No cache' },
 ];
-
-export const aiUsage = {
-  percent: 62,
-  generations: 184,
-  creditsUsed: '31.2k',
-  creditLimit: '50k',
-  items: [
-    { label: 'Formula translations', value: 86 },
-    { label: 'Level prompts', value: 64 },
-    { label: 'Quiz drafts', value: 34 },
-  ],
-};

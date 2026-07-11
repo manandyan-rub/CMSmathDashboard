@@ -9,17 +9,21 @@ use App\Http\Requests\Cms\UpdateCmsLevelPromptRequest;
 use App\Http\Requests\Cms\UpdateCmsLevelRequest;
 use App\Http\Requests\Cms\UpdateCmsFormulaRequest;
 use App\Http\Requests\Cms\UpdateCmsUserRequest;
+use App\Models\ExerciseGenerationLog;
 use App\Models\Formula;
 use App\Models\FormulaStep;
 use App\Models\FormulaTranslation;
 use App\Models\MathLevel;
+use App\Models\MathLevelPrompt;
 use App\Models\MathPath;
 use App\Models\User;
+use App\Services\Cms\MockMathLevelPreviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -27,9 +31,13 @@ use Illuminate\Validation\ValidationException;
 class CmsController extends Controller
 {
     private const LOCALES = ['en', 'hy', 'ru', 'fr'];
+    private const PREVIEW_SOURCE = 'preview';
 
     public function overview(): JsonResponse
     {
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+
         $usersCount = User::count();
         $adminsCount = User::where('role', User::ROLE_ADMIN)->count();
         $lecturersCount = User::where('role', User::ROLE_LECTURER)->count();
@@ -38,6 +46,39 @@ class CmsController extends Controller
         $formulasCount = Formula::count();
         $pathsCount = MathPath::count();
         $levelsCount = MathLevel::count();
+
+        $aiLogs = ExerciseGenerationLog::query()
+            ->whereBetween('created_at', [$monthStart, $monthEnd]);
+
+        $generationCount = (clone $aiLogs)->count();
+        $failedGenerationCount = (clone $aiLogs)
+            ->where(function ($query) {
+                $query
+                    ->whereNotNull('error')
+                    ->orWhere('status', 'failed');
+            })
+            ->count();
+        $successfulGenerationCount = (clone $aiLogs)
+            ->whereNotNull('finished_at')
+            ->whereNull('error')
+            ->where('status', '!=', 'failed')
+            ->count();
+        $averageDurationSeconds = (int) round(
+            (clone $aiLogs)
+                ->whereNotNull('started_at')
+                ->whereNotNull('finished_at')
+                ->get(['started_at', 'finished_at'])
+                ->avg(fn (ExerciseGenerationLog $log) => $log->started_at->diffInSeconds($log->finished_at))
+                ?? 0
+        );
+        $processingGenerationCount = max(0, $generationCount - $successfulGenerationCount - $failedGenerationCount);
+        $documentGenerationCount = (clone $aiLogs)
+            ->whereNotNull('document_id')
+            ->distinct('document_id')
+            ->count('document_id');
+        $successRate = $generationCount > 0
+            ? (int) round(($successfulGenerationCount / $generationCount) * 100)
+            : 0;
 
         $recentUsers = User::query()
             ->select(['id', 'name', 'email', 'role', 'created_at'])
@@ -61,6 +102,21 @@ class CmsController extends Controller
                 'formulas' => $formulasCount,
                 'paths' => $pathsCount,
                 'levels' => $levelsCount,
+            ],
+            'ai_usage' => [
+                'percent' => $successRate,
+                'generations' => $generationCount,
+                'successful' => $successfulGenerationCount,
+                'documents' => $documentGenerationCount,
+                'failed' => $failedGenerationCount,
+                'processing' => $processingGenerationCount,
+                'average_duration_seconds' => $averageDurationSeconds,
+                'period_label' => 'This month',
+                'items' => [
+                    ['label' => 'Failed', 'value' => $failedGenerationCount],
+                    ['label' => 'Processing', 'value' => $processingGenerationCount],
+                    ['label' => 'Avg sec', 'value' => $averageDurationSeconds],
+                ],
             ],
             'recent_users' => $recentUsers,
             'recent_formulas' => $recentFormulas,
@@ -104,6 +160,62 @@ class CmsController extends Controller
 
         return response()->json([
             'items' => $categories,
+        ]);
+    }
+
+    public function listGenerationLogs(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['nullable', 'string', 'max:20'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'per_page' => ['nullable', 'integer', 'min:5', 'max:50'],
+        ]);
+
+        $perPage = max(5, min(50, (int) ($validated['per_page'] ?? 10)));
+
+        $query = ExerciseGenerationLog::query()
+            ->with([
+                'user:id,name,email',
+                'document:id,title,status,language',
+            ]);
+
+        if (!empty($validated['status'])) {
+            $query->where('status', $validated['status']);
+        }
+
+        if (!empty($validated['user_id'])) {
+            $query->where('user_id', (int) $validated['user_id']);
+        }
+
+        if (!empty($validated['date_from'])) {
+            $query->where('started_at', '>=', $validated['date_from'].' 00:00:00');
+        }
+
+        if (!empty($validated['date_to'])) {
+            $query->where('started_at', '<=', $validated['date_to'].' 23:59:59');
+        }
+
+        $logs = $query->latest('started_at')->latest('id')->paginate($perPage);
+
+        return response()->json([
+            'items' => collect($logs->items())
+                ->map(fn (ExerciseGenerationLog $log) => $this->transformGenerationLog($log))
+                ->values(),
+            'pagination' => $this->pagination($logs),
+        ]);
+    }
+
+    public function showGenerationLog(ExerciseGenerationLog $generationLog): JsonResponse
+    {
+        $generationLog->load([
+            'user:id,name,email',
+            'document:id,title,status,language',
+        ]);
+
+        return response()->json([
+            'item' => $this->transformGenerationLog($generationLog, true),
         ]);
     }
 
@@ -491,6 +603,56 @@ class CmsController extends Controller
         ]);
     }
 
+    public function previewLevelPrompt(
+        UpdateCmsLevelPromptRequest $request,
+        MathLevel $level,
+        MockMathLevelPreviewService $previewService
+    ): JsonResponse {
+        $level->loadMissing([
+            'translations',
+            'path.translations',
+        ]);
+
+        $previewPrompt = new MathLevelPrompt([
+            'level_id' => $level->id,
+            'prompt' => $request->string('prompt')->toString(),
+            'question_count' => $request->integer('question_count'),
+            'options_count' => $request->integer('options_count'),
+            'locale' => $request->string('locale')->toString(),
+        ]);
+        $previewPrompt->setRelation('level', $level);
+
+        $startedAt = now();
+        $preview = $previewService->generate($previewPrompt);
+        $finishedAt = now();
+
+        $log = ExerciseGenerationLog::create([
+            'user_id' => (int) $request->user()->id,
+            'document_id' => null,
+            'source' => self::PREVIEW_SOURCE,
+            'status' => 'completed',
+            'prompt' => $preview['logged_prompt'],
+            'request_json' => json_encode($preview['request_payload'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            'response_raw' => $preview['response_raw'],
+            'parsed_json' => json_encode($preview['parsed_payload'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            'error' => null,
+            'started_at' => $startedAt,
+            'finished_at' => $finishedAt,
+        ]);
+        $log->load('user:id,name,email');
+
+        return response()->json([
+            'item' => [
+                'notice' => $preview['notice'],
+                'source' => self::PREVIEW_SOURCE,
+                'status' => 'completed',
+                'preview' => $preview['parsed_payload'],
+                'response_raw' => $preview['response_raw'],
+                'logged_generation' => $this->transformGenerationLog($log, true),
+            ],
+        ]);
+    }
+
     private function syncTranslations(Formula $formula, array $translations): void
     {
         $formula->translations()->delete();
@@ -570,6 +732,51 @@ class CmsController extends Controller
             'steps_count' => is_array($step?->steps_json) ? count($step->steps_json) : 0,
             'locales_count' => (int) ($formula->steps_count ?? 0),
             'steps_updated_at' => $step?->updated_at,
+        ]);
+    }
+
+    private function transformGenerationLog(ExerciseGenerationLog $log, bool $includePayloads = false): array
+    {
+        $durationSeconds = $log->started_at && $log->finished_at
+            ? $log->started_at->diffInSeconds($log->finished_at)
+            : null;
+
+        $item = [
+            'id' => $log->id,
+            'status' => $log->status,
+            'source' => $log->source ?? 'runtime',
+            'user' => $log->user ? [
+                'id' => $log->user->id,
+                'name' => $log->user->name,
+                'email' => $log->user->email,
+            ] : null,
+            'document' => $log->document ? [
+                'id' => $log->document->id,
+                'title' => $log->document->title,
+                'status' => $log->document->status,
+                'language' => $log->document->language,
+            ] : null,
+            'started_at' => $log->started_at,
+            'finished_at' => $log->finished_at,
+            'duration_seconds' => $durationSeconds,
+            'error_excerpt' => $log->error ? Str::limit($log->error, 120) : null,
+        ];
+
+        if (!$includePayloads) {
+            return $item;
+        }
+
+        // Admin-only for now. If admin access ever expands beyond technical staff,
+        // request_json / response_raw must be redacted for student-identifying data
+        // before these payloads remain visible in CMS detail views.
+        return array_merge($item, [
+            'prompt' => $log->prompt,
+            'request_json' => $log->request_json,
+            'response_raw' => $log->response_raw,
+            'parsed_json' => $log->parsed_json,
+            'error' => $log->error,
+            'created_at' => $log->created_at,
+            'updated_at' => $log->updated_at,
         ]);
     }
 

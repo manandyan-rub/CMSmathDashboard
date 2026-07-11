@@ -12,9 +12,26 @@ export function useStats({ locale, showError }) {
             paths: 0,
             levels: 0,
         },
+        ai_usage: {
+            percent: 0,
+            generations: 0,
+            successful: 0,
+            documents: 0,
+            failed: 0,
+            processing: 0,
+            average_duration_seconds: 0,
+            period_label: 'This month',
+            items: [
+                { label: 'Failed', value: 0 },
+                { label: 'Processing', value: 0 },
+                { label: 'Avg sec', value: 0 },
+            ],
+        },
         recent_users: [],
         recent_formulas: [],
     });
+
+    const aiUsage = computed(() => overview.ai_usage);
 
     const topKpis = computed(() => [
         {
@@ -63,6 +80,10 @@ export function useStats({ locale, showError }) {
                 ...overview.stats,
                 ...(data?.stats ?? {}),
             };
+            overview.ai_usage = {
+                ...overview.ai_usage,
+                ...(data?.ai_usage ?? {}),
+            };
             overview.recent_users = data?.recent_users ?? [];
             overview.recent_formulas = data?.recent_formulas ?? [];
         } catch (error) {
@@ -72,6 +93,7 @@ export function useStats({ locale, showError }) {
 
     return {
         overview,
+        aiUsage,
         topKpis,
         loadOverview,
     };

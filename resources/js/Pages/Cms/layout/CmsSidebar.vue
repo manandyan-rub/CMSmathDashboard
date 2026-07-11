@@ -61,7 +61,7 @@ const emit = defineEmits(['update:activeSection', 'logout']);
                     </span>
                     <div>
                         <p class="text-sm font-semibold text-white">AI usage</p>
-                        <p class="text-xs text-indigo-200/75">This month</p>
+                        <p class="text-xs text-indigo-200/75">{{ aiUsage.period_label || 'This month' }}</p>
                     </div>
                 </div>
                 <span class="text-xs font-bold text-indigo-100">{{ aiUsage.percent }}%</span>
@@ -73,8 +73,8 @@ const emit = defineEmits(['update:activeSection', 'logout']);
                     <p class="mt-1 text-lg font-extrabold text-white">{{ aiUsage.generations }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-700/70 bg-slate-950/35 p-2">
-                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Credits</p>
-                    <p class="mt-1 text-lg font-extrabold text-white">{{ aiUsage.creditsUsed }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Successful</p>
+                    <p class="mt-1 text-lg font-extrabold text-white">{{ aiUsage.successful }}</p>
                 </div>
             </div>
 
@@ -93,7 +93,8 @@ const emit = defineEmits(['update:activeSection', 'logout']);
             </div>
 
             <p class="mt-3 text-xs text-slate-400">
-                {{ aiUsage.creditsUsed }} of {{ aiUsage.creditLimit }} AI credits used.
+                {{ aiUsage.successful }} successful from {{ aiUsage.generations }} logged generations.
+                Avg duration: {{ aiUsage.average_duration_seconds || 0 }}s.
             </p>
         </div>
 

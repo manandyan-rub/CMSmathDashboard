@@ -1,6 +1,5 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import {
-    aiUsage,
     cacheFilterOptions,
     cmsSections,
     formulaLocales,
@@ -8,6 +7,7 @@ import {
 } from './data/navData';
 import { useFormulaExplanations } from './formulas/useFormulaExplanations';
 import { useFormulaLibrary } from './formulas/useFormulaLibrary';
+import { useGenerationLogs } from './generation-logs/useGenerationLogs';
 import { useLevels } from './levels/useLevels';
 import { useSettings } from './settings/useSettings';
 import { useAlerts } from './shared/useAlerts';
@@ -53,6 +53,10 @@ export function useCmsDashboard() {
         showSuccess: alerts.showSuccess,
         loadOverview: stats.loadOverview,
     });
+    const generationLogs = useGenerationLogs({
+        clearAlerts: alerts.clearAlerts,
+        showError: alerts.showError,
+    });
     const settings = useSettings({
         clearAlerts: alerts.clearAlerts,
         showError: alerts.showError,
@@ -65,15 +69,17 @@ export function useCmsDashboard() {
     const isUsersSection = computed(() => activeSection.value === 'users');
     const isFormulasSection = computed(() => activeSection.value === 'formulas');
     const isLevelsSection = computed(() => activeSection.value === 'levels');
+    const isGenerationLogsSection = computed(() => activeSection.value === 'generation-logs');
     const isReportsSection = computed(() => activeSection.value === 'reports');
     const isOverviewSection = computed(() => activeSection.value === 'overview');
     const isSettingsSection = computed(() => activeSection.value === 'settings');
-    const showNewAction = computed(() => !isUsersSection.value && !isSettingsSection.value);
+    const showNewAction = computed(() => !isUsersSection.value && !isSettingsSection.value && !isGenerationLogsSection.value);
     const themeClass = computed(() => (theme.value === 'light' ? 'cms-theme-light' : 'cms-theme-dark'));
     const newActionLabel = computed(() => {
         if (isUsersSection.value) return 'New user';
         if (isFormulasSection.value) return 'New formula';
         if (isLevelsSection.value) return 'Reload levels';
+        if (isGenerationLogsSection.value) return 'Reload logs';
         if (isReportsSection.value) return 'Reload explanations';
         return 'New module';
     });
@@ -88,6 +94,7 @@ export function useCmsDashboard() {
             formulas.loadFormulaCategories(),
             explanations.loadExplanations(1),
             levels.loadLevels(),
+            generationLogs.loadGenerationLogs(1),
         ]);
         globalLoading.value = false;
     }
@@ -108,6 +115,11 @@ export function useCmsDashboard() {
             return;
         }
 
+        if (isGenerationLogsSection.value) {
+            generationLogs.loadGenerationLogs(1);
+            return;
+        }
+
         if (isReportsSection.value) {
             explanations.loadExplanations();
         }
@@ -117,6 +129,32 @@ export function useCmsDashboard() {
         if (!dateString) return '-';
         const date = new Date(dateString);
         return date.toLocaleDateString();
+    }
+
+    function formatTimestamp(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return date.toLocaleString();
+    }
+
+    function formatDuration(seconds) {
+        if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return '-';
+        const totalSeconds = Number(seconds);
+        const minutes = Math.floor(totalSeconds / 60);
+        const remainder = totalSeconds % 60;
+
+        if (minutes <= 0) {
+            return `${remainder}s`;
+        }
+
+        return `${minutes}m ${remainder}s`;
+    }
+
+    function generationLogStatusTone(status) {
+        if (status === 'completed') return 'bg-emerald-500/15 text-emerald-200';
+        if (status === 'failed') return 'bg-rose-500/15 text-rose-200';
+        if (status === 'processing') return 'bg-amber-500/15 text-amber-200';
+        return 'bg-slate-700 text-slate-300';
     }
 
     async function logout() {
@@ -159,7 +197,7 @@ export function useCmsDashboard() {
         sections: cmsSections,
         roleOptions,
         formulaLocales,
-        aiUsage,
+        aiUsage: stats.aiUsage,
         cacheFilterOptions,
         activeSection,
         locale,
@@ -171,6 +209,7 @@ export function useCmsDashboard() {
         isUsersSection,
         isFormulasSection,
         isLevelsSection,
+        isGenerationLogsSection,
         isReportsSection,
         isOverviewSection,
         isSettingsSection,
@@ -178,6 +217,9 @@ export function useCmsDashboard() {
         setTheme,
         toggleTheme,
         formatDate,
+        formatTimestamp,
+        formatDuration,
+        generationLogStatusTone,
         renderFormulaMarkup,
         bootstrap,
         handleNewAction,
@@ -186,6 +228,7 @@ export function useCmsDashboard() {
         ...stats,
         ...users,
         ...formulas,
+        ...generationLogs,
         ...explanations,
         ...levels,
         ...settings,

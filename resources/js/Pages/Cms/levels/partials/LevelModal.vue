@@ -1,5 +1,5 @@
 <script setup>
-import { CheckCircle2, X } from '@lucide/vue';
+import { CheckCircle2, FlaskConical, X } from '@lucide/vue';
 
 defineProps({
     show: {
@@ -18,13 +18,21 @@ defineProps({
         type: Boolean,
         required: true,
     },
+    previewLoading: {
+        type: Boolean,
+        required: true,
+    },
+    previewResult: {
+        type: Object,
+        default: null,
+    },
     isEditing: {
         type: Boolean,
         required: true,
     },
 });
 
-const emit = defineEmits(['close', 'save']);
+const emit = defineEmits(['close', 'preview', 'save']);
 </script>
 
 <template>
@@ -94,7 +102,47 @@ const emit = defineEmits(['close', 'save']);
                 ></textarea>
             </label>
 
+            <div v-if="previewResult" class="mt-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4">
+                <p class="text-xs font-bold uppercase tracking-wide text-amber-200">{{ previewResult.notice }}</p>
+                <p class="mt-2 text-sm text-amber-100">
+                    This preview is CMS-only placeholder wiring. It does not call the real MathDash AI generation flow yet.
+                </p>
+
+                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                        <p class="text-[11px] font-semibold uppercase text-slate-400">Logged run</p>
+                        <p class="mt-1 text-sm font-semibold text-white">
+                            #{{ previewResult.logged_generation?.id }} · {{ previewResult.logged_generation?.source }}
+                        </p>
+                        <p class="mt-1 text-xs text-slate-400">{{ previewResult.logged_generation?.status }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                        <p class="text-[11px] font-semibold uppercase text-slate-400">Preview source</p>
+                        <p class="mt-1 text-sm font-semibold uppercase text-amber-200">{{ previewResult.source }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                    <p class="text-[11px] font-semibold uppercase text-slate-400">Mock output payload</p>
+                    <pre class="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-200">{{ JSON.stringify(previewResult.preview, null, 2) }}</pre>
+                </div>
+
+                <div class="mt-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                    <p class="text-[11px] font-semibold uppercase text-slate-400">Mock raw response</p>
+                    <pre class="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-200">{{ previewResult.response_raw }}</pre>
+                </div>
+            </div>
+
             <div class="mt-5 flex justify-end gap-2">
+                <button
+                    class="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+                    type="button"
+                    :disabled="previewLoading || submitting || !isEditing"
+                    @click="emit('preview')"
+                >
+                    <FlaskConical class="h-4 w-4" />
+                    {{ previewLoading ? 'Generating mock preview...' : 'Preview generation' }}
+                </button>
                 <button
                     class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
                     type="button"
@@ -105,7 +153,7 @@ const emit = defineEmits(['close', 'save']);
                 <button
                     class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
                     type="button"
-                    :disabled="submitting || !isEditing"
+                    :disabled="submitting || previewLoading || !isEditing"
                     @click="emit('save')"
                 >
                     <CheckCircle2 class="h-4 w-4" />

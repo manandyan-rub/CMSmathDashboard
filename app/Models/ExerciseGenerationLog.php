@@ -13,6 +13,7 @@ class ExerciseGenerationLog extends Model
     protected $fillable = [
         'user_id',
         'document_id',
+        'source',
         'status',
         'prompt',
         'request_json',
@@ -38,4 +39,3 @@ class ExerciseGenerationLog extends Model
         return $this->belongsTo(ExerciseDocument::class, 'document_id');
     }
 }
-

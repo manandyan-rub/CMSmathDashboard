@@ -48,31 +48,38 @@ const emit = defineEmits(['openFormulas']);
             </article>
 
             <article class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
-                <p class="text-xs font-bold uppercase tracking-wide text-indigo-300">Formula Focus</p>
-                <div class="mt-3 space-y-2">
+                <p class="text-xs font-bold uppercase tracking-wide text-indigo-300">Content footprint</p>
+                <h3 class="mt-2 text-lg font-bold text-white">Live inventory</h3>
+                <p class="mt-1 text-sm text-slate-400">Current totals pulled from the CMS database.</p>
+
+                <div class="mt-4 space-y-3">
                     <div class="rounded-lg border border-slate-700 bg-slate-900 p-3">
-                        <p class="text-xs font-semibold uppercase text-slate-400">Algebra</p>
-                        <p class="mt-1 font-mono text-sm text-blue-300">ax + b = c</p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Formulas</p>
+                            <p class="text-lg font-black text-white">{{ overview.stats.formulas }}</p>
+                        </div>
                     </div>
                     <div class="rounded-lg border border-slate-700 bg-slate-900 p-3">
-                        <p class="text-xs font-semibold uppercase text-slate-400">Geometry</p>
-                        <p class="mt-1 font-mono text-sm text-sky-300">A = pi r^2</p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Learning paths</p>
+                            <p class="text-lg font-black text-white">{{ overview.stats.paths }}</p>
+                        </div>
                     </div>
                     <div class="rounded-lg border border-slate-700 bg-slate-900 p-3">
-                        <p class="text-xs font-semibold uppercase text-slate-400">Probability</p>
-                        <p class="mt-1 font-mono text-sm text-amber-300">P(A | B)</p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Math levels</p>
+                            <p class="text-lg font-black text-white">{{ overview.stats.levels }}</p>
+                        </div>
                     </div>
                 </div>
-                <div class="mt-4">
-                    <div class="mb-1 flex items-center justify-between text-xs text-slate-400">
-                        <span>Content health mix</span>
-                        <span class="font-semibold text-amber-300">94%</span>
-                    </div>
-                    <div class="h-2 overflow-hidden rounded-full bg-slate-800">
-                        <div class="h-full w-[38%] bg-indigo-500"></div>
-                        <div class="-mt-2 h-2 w-[28%] translate-x-[38%] bg-blue-500"></div>
-                        <div class="-mt-2 h-2 w-[20%] translate-x-[66%] bg-amber-500"></div>
-                        <div class="-mt-2 h-2 w-[14%] translate-x-[86%] bg-rose-500"></div>
+
+                <div class="mt-4 rounded-lg border border-slate-700 bg-slate-900 p-3">
+                    <div class="flex items-center justify-between gap-3 text-xs text-slate-400">
+                        <span>Formula coverage</span>
+                        <span class="font-semibold text-indigo-300">
+                            {{ overview.stats.levels > 0 ? (overview.stats.formulas / overview.stats.levels).toFixed(1) : '0.0' }}
+                            per level
+                        </span>
                     </div>
                 </div>
             </article>

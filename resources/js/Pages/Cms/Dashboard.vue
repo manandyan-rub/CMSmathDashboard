@@ -3,6 +3,7 @@ import ExplanationsPage from './formulas/ExplanationsPage.vue';
 import ExplanationModal from './formulas/partials/ExplanationModal.vue';
 import FormulaModal from './formulas/partials/FormulaModal.vue';
 import FormulasPage from './formulas/FormulasPage.vue';
+import GenerationLogsPage from './generation-logs/GenerationLogsPage.vue';
 import CmsSidebar from './layout/CmsSidebar.vue';
 import CmsTopbar from './layout/CmsTopbar.vue';
 import LevelModal from './levels/partials/LevelModal.vue';
@@ -27,6 +28,8 @@ const {
     searchFormulas,
     searchExplanations,
     cacheFilter,
+    generationLogsLoading,
+    generationLogDetailLoading,
     globalLoading,
     usersLoading,
     formulasLoading,
@@ -39,6 +42,7 @@ const {
     formulasState,
     levelsState,
     explanationsState,
+    generationLogsState,
     showUserModal,
     userSubmitting,
     userForm,
@@ -47,7 +51,9 @@ const {
     formulaForm,
     showLevelModal,
     levelSubmitting,
+    levelPreviewLoading,
     levelForm,
+    levelPreview,
     showExplanationModal,
     explanationSubmitting,
     explanationLocaleLoading,
@@ -60,6 +66,7 @@ const {
     isUsersSection,
     isFormulasSection,
     isLevelsSection,
+    isGenerationLogsSection,
     isReportsSection,
     isOverviewSection,
     showNewAction,
@@ -71,6 +78,7 @@ const {
     loadUsers,
     loadFormulas,
     loadExplanations,
+    loadGenerationLogs,
     loadLevels,
     openCreateUser,
     openEditUser,
@@ -87,8 +95,14 @@ const {
     removeExplanationStep,
     saveExplanation,
     openEditLevel,
+    previewLevelPrompt,
     saveLevel,
     currentUser,
+    generationLogFilters,
+    generationLogStatusOptions,
+    generationLogDetail,
+    selectedGenerationLogId,
+    openGenerationLog,
     profileForm,
     profileErrors,
     profileSubmitting,
@@ -100,6 +114,9 @@ const {
     setTheme,
     toggleTheme,
     formatDate,
+    formatTimestamp,
+    formatDuration,
+    generationLogStatusTone,
     renderFormulaMarkup,
     logout,
 } = useCmsDashboard();
@@ -200,6 +217,23 @@ const {
                     @edit="openEditLevel"
                 />
 
+                <GenerationLogsPage
+                    v-else-if="isGenerationLogsSection"
+                    :generation-logs-state="generationLogsState"
+                    :generation-logs-loading="generationLogsLoading"
+                    :generation-log-detail-loading="generationLogDetailLoading"
+                    :generation-log-filters="generationLogFilters"
+                    :generation-log-status-options="generationLogStatusOptions"
+                    :generation-log-detail="generationLogDetail"
+                    :selected-generation-log-id="selectedGenerationLogId"
+                    :format-timestamp="formatTimestamp"
+                    :format-duration="formatDuration"
+                    :status-tone="generationLogStatusTone"
+                    @reload="loadGenerationLogs(1)"
+                    @open="openGenerationLog"
+                    @page="loadGenerationLogs"
+                />
+
                 <SettingsPage
                     v-else-if="isSettingsSection"
                     :current-user="currentUser"
@@ -263,8 +297,11 @@ const {
             :form="levelForm"
             :formula-locales="formulaLocales"
             :submitting="levelSubmitting"
+            :preview-loading="levelPreviewLoading"
+            :preview-result="levelPreview"
             :is-editing="isLevelEditing"
             @close="showLevelModal = false"
+            @preview="previewLevelPrompt"
             @save="saveLevel"
         />
     </div>
