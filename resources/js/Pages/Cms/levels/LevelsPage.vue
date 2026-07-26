@@ -10,6 +10,10 @@ defineProps({
         type: Boolean,
         required: true,
     },
+    canManage: {
+        type: Boolean,
+        required: true,
+    },
 });
 
 const emit = defineEmits(['reload', 'edit']);
@@ -88,6 +92,7 @@ const emit = defineEmits(['reload', 'edit']);
                         </div>
 
                         <button
+                            v-if="canManage"
                             type="button"
                             class="mt-3 inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
                             @click="emit('edit', pathItem, level)"

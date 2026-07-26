@@ -8,7 +8,7 @@ class UpdateCmsLevelRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->isAdmin();
+        return (bool) $this->user()?->hasCmsPermission('levels.manage');
     }
 
     public function rules(): array
@@ -22,4 +22,3 @@ class UpdateCmsLevelRequest extends FormRequest
         ];
     }
 }
-

@@ -1,83 +1,78 @@
-<script setup>
-import { Moon, Plus, RefreshCcw, Search, Sun } from '@lucide/vue';
+<script setup lang="ts">
+import { Moon, RefreshCcw, Search, Sun } from 'lucide-vue-next';
+import GlobalSearchPanel from '../search/GlobalSearchPanel.vue';
 
-defineProps({
-    selectedSectionLabel: {
-        type: String,
-        required: true,
-    },
-    newActionLabel: {
-        type: String,
-        required: true,
-    },
-    showNewAction: {
-        type: Boolean,
-        default: true,
-    },
-    locale: {
-        type: String,
-        required: true,
-    },
-    theme: {
-        type: String,
-        required: true,
-    },
-});
+defineProps<{
+    groupLabel: string;
+    sectionLabel: string;
+    locale: string;
+    locales: string[];
+    theme: string;
+    searchQuery: string;
+    searchGroups: Record<string, Array<Record<string, any>>>;
+    searchLoading: boolean;
+    t: (key: string) => string;
+}>();
 
-const emit = defineEmits(['update:locale', 'refresh', 'newAction', 'toggleTheme']);
+const emit = defineEmits<{
+    'update:locale': [value: string];
+    'update:searchQuery': [value: string];
+    refresh: [];
+    toggleTheme: [];
+    selectSearch: [item: Record<string, any>];
+}>();
 </script>
 
 <template>
-    <header class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/75 px-4 py-3 sm:px-5">
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-300">CMS workspace</p>
-            <h1 class="text-xl font-extrabold tracking-tight text-white sm:text-2xl">{{ selectedSectionLabel }}</h1>
+    <header class="mb-5 flex flex-col gap-3 border-b border-slate-800 pb-4 xl:flex-row xl:items-center xl:justify-between">
+        <div class="pl-12 lg:pl-0">
+            <p class="text-xs font-semibold text-emerald-300">{{ groupLabel }}</p>
+            <h1 class="text-xl font-bold text-white">{{ sectionLabel }}</h1>
         </div>
+
         <div class="flex flex-wrap items-center gap-2">
-            <label class="relative">
-                <Search class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <div class="relative min-w-[16rem] flex-1 sm:min-w-[22rem]">
+                <Search class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                 <input
-                    type="text"
-                    class="rounded-lg border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none"
-                    placeholder="Search lessons, cohorts, owners"
+                    :value="searchQuery"
+                    type="search"
+                    class="h-10 w-full rounded-lg border border-slate-700 bg-slate-950 pl-9 pr-3 text-sm text-white placeholder:text-slate-600 focus:border-emerald-400 focus:ring-0"
+                    :placeholder="t('topbar.search')"
+                    @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
                 />
-            </label>
+                <GlobalSearchPanel
+                    :groups="searchGroups"
+                    :loading="searchLoading"
+                    :query="searchQuery"
+                    :t="t"
+                    @select="emit('selectSearch', $event)"
+                />
+            </div>
+
             <select
                 :value="locale"
-                class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200"
-                @change="emit('update:locale', $event.target.value)"
+                class="h-10 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm font-medium text-slate-200 focus:border-emerald-400 focus:ring-0"
+                @change="emit('update:locale', ($event.target as HTMLSelectElement).value)"
             >
-                <option value="en">English</option>
-                <option value="hy">Armenian</option>
-                <option value="ru">Russian</option>
-                <option value="fr">French</option>
+                <option v-for="item in locales" :key="item" :value="item">{{ item.toUpperCase() }}</option>
             </select>
+
             <button
-                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
                 type="button"
+                class="grid h-10 w-10 place-items-center rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
+                :title="t('common.refresh')"
                 @click="emit('refresh')"
             >
                 <RefreshCcw class="h-4 w-4" />
-                Refresh
             </button>
             <button
-                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
                 type="button"
-                :title="theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+                class="grid h-10 w-10 place-items-center rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
+                :title="theme === 'light' ? t('common.dark') : t('common.light')"
                 @click="emit('toggleTheme')"
             >
                 <Moon v-if="theme === 'light'" class="h-4 w-4" />
                 <Sun v-else class="h-4 w-4" />
-                {{ theme === 'light' ? 'Dark' : 'Light' }}
-            </button>
-            <button
-                v-if="showNewAction"
-                type="button"
-                class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
-                @click="emit('newAction')"
-            >
-                <Plus class="h-4 w-4" />
-                {{ newActionLabel }}
             </button>
         </div>
     </header>

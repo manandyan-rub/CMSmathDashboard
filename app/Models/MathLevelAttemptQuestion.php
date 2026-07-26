@@ -11,6 +11,7 @@ class MathLevelAttemptQuestion extends Model
 
     protected $fillable = [
         'attempt_id',
+        'source_question_id',
         'question',
         'explanation',
         'order',
@@ -20,6 +21,11 @@ class MathLevelAttemptQuestion extends Model
     public function attempt()
     {
         return $this->belongsTo(MathLevelAttempt::class, 'attempt_id');
+    }
+
+    public function sourceQuestion()
+    {
+        return $this->belongsTo(MathLevelQuestion::class, 'source_question_id');
     }
 
     public function options()

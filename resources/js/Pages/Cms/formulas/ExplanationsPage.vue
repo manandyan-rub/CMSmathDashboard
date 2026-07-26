@@ -31,6 +31,10 @@ defineProps({
         type: Function,
         required: true,
     },
+    canManage: {
+        type: Boolean,
+        required: true,
+    },
 });
 
 const emit = defineEmits(['update:search', 'update:cacheFilter', 'search', 'reload', 'edit', 'page']);
@@ -150,6 +154,7 @@ const emit = defineEmits(['update:search', 'update:cacheFilter', 'search', 'relo
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <button
+                                    v-if="canManage"
                                     class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
                                     type="button"
                                     @click="emit('edit', item)"

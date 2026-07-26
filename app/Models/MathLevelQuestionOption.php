@@ -12,12 +12,23 @@ class MathLevelQuestionOption extends Model
     protected $fillable = [
         'question_id',
         'option_text',
+        'explanation',
         'is_correct',
         'order',
     ];
 
+    protected function casts(): array
+    {
+        return ['is_correct' => 'boolean'];
+    }
+
     public function question()
     {
         return $this->belongsTo(MathLevelQuestion::class, 'question_id');
+    }
+
+    public function translations()
+    {
+        return $this->hasMany(MathLevelQuestionOptionTranslation::class, 'option_id');
     }
 }

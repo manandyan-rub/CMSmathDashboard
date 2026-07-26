@@ -15,6 +15,8 @@ class MathLevelAttempt extends Model
         'score',
         'correct_answers',
         'wrong_answers',
+        'hints_used',
+        'duration_seconds',
         'stars',
         'passed',
         'xp_earned',

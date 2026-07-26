@@ -32,5 +32,6 @@ class DatabaseSeeder extends Seeder
         $this->call(FormulaSeeder::class);
         $this->call(MathLevelsSeeder::class);
         $this->call(DashboardDemoSeeder::class);
+        $this->call(CmsPlatformSeeder::class);
     }
 }

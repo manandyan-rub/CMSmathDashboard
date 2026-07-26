@@ -21,10 +21,14 @@ class ExerciseItem extends Model
         'difficulty',
         'points',
         'source',
+        'edited_after_ai',
+        'source_metadata',
     ];
 
     protected $casts = [
         'options' => 'array',
+        'edited_after_ai' => 'boolean',
+        'source_metadata' => 'array',
     ];
 
     public function document(): BelongsTo
@@ -32,4 +36,3 @@ class ExerciseItem extends Model
         return $this->belongsTo(ExerciseDocument::class, 'document_id');
     }
 }
-

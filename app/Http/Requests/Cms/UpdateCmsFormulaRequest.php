@@ -8,7 +8,7 @@ class UpdateCmsFormulaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->isAdmin();
+        return (bool) $this->user()?->hasCmsPermission('formulas.manage');
     }
 
     public function rules(): array

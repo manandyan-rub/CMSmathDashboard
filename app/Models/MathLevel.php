@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasCmsGovernance;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MathLevel extends Model
 {
-    use HasFactory;
+    use HasCmsGovernance, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'path_id',
@@ -18,8 +20,22 @@ class MathLevel extends Model
         'passing_score',
         'xp_reward',
         'time_limit',
+        'allowed_attempts',
+        'hints_enabled',
+        'calculator_enabled',
         'active',
+        'archived_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'active' => 'boolean',
+            'hints_enabled' => 'boolean',
+            'calculator_enabled' => 'boolean',
+            'archived_at' => 'datetime',
+        ];
+    }
 
     public function translations(): HasMany
     {

@@ -18,6 +18,8 @@ use App\Models\MathLevelPrompt;
 use App\Models\MathPath;
 use App\Models\User;
 use App\Services\Cms\MockMathLevelPreviewService;
+use App\Services\Cms\AuditService;
+use App\Services\Cms\ContentVersionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -32,6 +34,12 @@ class CmsController extends Controller
 {
     private const LOCALES = ['en', 'hy', 'ru', 'fr'];
     private const PREVIEW_SOURCE = 'preview';
+
+    public function __construct(
+        private readonly AuditService $audit,
+        private readonly ContentVersionService $versions,
+    ) {
+    }
 
     public function overview(): JsonResponse
     {
@@ -308,6 +316,18 @@ class CmsController extends Controller
                 'steps_json' => $steps,
             ]
         );
+        $this->versions->capture(
+            $formula,
+            [],
+            ['locale' => $locale, 'steps_json' => $steps],
+            'Formula explanation updated'
+        );
+        $this->audit->record(
+            'formula.explanation_updated',
+            $formula,
+            [],
+            ['locale' => $locale, 'steps_json' => $steps]
+        );
 
         $formula->load('translations');
         $formula->loadCount('steps');
@@ -320,12 +340,24 @@ class CmsController extends Controller
 
     public function storeUser(StoreCmsUserRequest $request): JsonResponse
     {
+        if ($request->validated('role') !== User::ROLE_STUDENT) {
+            abort_unless($request->user()->hasCmsPermission('users.roles.manage'), 403);
+        }
         $user = User::create([
             'name' => $request->string('name')->toString(),
             'email' => $request->string('email')->toString(),
             'role' => $request->string('role')->toString(),
+            'status' => $request->input('status', 'active'),
+            'locale' => $request->input('locale', config('app.locale', 'en')),
+            'country_id' => $request->input('country_id'),
             'password' => Hash::make($request->string('password')->toString()),
         ]);
+        $this->audit->record(
+            'user.created',
+            $user,
+            [],
+            $this->audit->modelSnapshot($user)
+        );
 
         return response()->json([
             'item' => $user->only(['id', 'name', 'email', 'role', 'created_at']),
@@ -334,24 +366,32 @@ class CmsController extends Controller
 
     public function updateUser(UpdateCmsUserRequest $request, User $user): JsonResponse
     {
+        $before = $this->audit->modelSnapshot($user);
         $payload = [
             'name' => $request->string('name')->toString(),
             'email' => $request->string('email')->toString(),
             'role' => $request->string('role')->toString(),
+            'status' => $request->input('status', $user->status),
+            'locale' => $request->input('locale', $user->locale),
+            'country_id' => $request->input('country_id'),
         ];
-
-        $password = trim((string) $request->input('password', ''));
-        if ($password !== '') {
-            $payload['password'] = Hash::make($password);
-        }
 
         if ((int) $request->user()->id === (int) $user->id && $payload['role'] !== User::ROLE_ADMIN) {
             throw ValidationException::withMessages([
                 'role' => 'You cannot remove your own admin access.',
             ]);
         }
+        if ($payload['role'] !== $user->role) {
+            abort_unless($request->user()->hasCmsPermission('users.roles.manage'), 403);
+        }
 
         $user->update($payload);
+        $this->audit->record(
+            'user.updated',
+            $user,
+            $before,
+            $this->audit->modelSnapshot($user->fresh())
+        );
 
         return response()->json([
             'item' => $user->fresh()->only(['id', 'name', 'email', 'role', 'created_at']),
@@ -366,7 +406,9 @@ class CmsController extends Controller
             ]);
         }
 
+        $before = $this->audit->modelSnapshot($user);
         $user->delete();
+        $this->audit->record('user.deleted', $user, $before, ['deleted' => true]);
 
         return response()->json(['ok' => true]);
     }
@@ -462,6 +504,12 @@ class CmsController extends Controller
         });
 
         $formula->load('translations');
+        $snapshot = array_merge(
+            $this->audit->modelSnapshot($formula),
+            ['translations' => $formula->translations->toArray()]
+        );
+        $this->versions->capture($formula, [], $snapshot, 'Formula created');
+        $this->audit->record('formula.created', $formula, [], $snapshot);
 
         return response()->json([
             'item' => $this->transformFormula($formula, $request->query('locale', config('app.locale', 'en'))),
@@ -470,6 +518,11 @@ class CmsController extends Controller
 
     public function updateFormula(UpdateCmsFormulaRequest $request, Formula $formula): JsonResponse
     {
+        $formula->load('translations');
+        $before = array_merge(
+            $this->audit->modelSnapshot($formula),
+            ['translations' => $formula->translations->toArray()]
+        );
         $translations = (array) $request->input('translations', []);
         $this->ensureHasTranslationName($translations);
 
@@ -484,6 +537,12 @@ class CmsController extends Controller
         });
 
         $formula->load('translations');
+        $after = array_merge(
+            $this->audit->modelSnapshot($formula),
+            ['translations' => $formula->translations->toArray()]
+        );
+        $this->versions->capture($formula, $before, $after);
+        $this->audit->record('formula.updated', $formula, $before, $after);
 
         return response()->json([
             'item' => $this->transformFormula($formula, $request->query('locale', config('app.locale', 'en'))),
@@ -492,7 +551,9 @@ class CmsController extends Controller
 
     public function destroyFormula(Formula $formula): JsonResponse
     {
+        $before = $this->audit->modelSnapshot($formula);
         $formula->delete();
+        $this->audit->record('formula.deleted', $formula, $before, ['deleted' => true]);
 
         return response()->json(['ok' => true]);
     }
@@ -559,6 +620,7 @@ class CmsController extends Controller
 
     public function updateLevel(UpdateCmsLevelRequest $request, MathLevel $level): JsonResponse
     {
+        $before = $this->audit->modelSnapshot($level);
         $level->update([
             'difficulty' => $request->string('difficulty')->toString(),
             'passing_score' => $request->integer('passing_score'),
@@ -566,6 +628,9 @@ class CmsController extends Controller
             'time_limit' => $request->filled('time_limit') ? $request->integer('time_limit') : null,
             'active' => $request->boolean('active'),
         ]);
+        $after = $this->audit->modelSnapshot($level->fresh());
+        $this->versions->capture($level, $before, $after);
+        $this->audit->record('level.updated', $level, $before, $after);
 
         return response()->json([
             'item' => [
@@ -581,6 +646,7 @@ class CmsController extends Controller
 
     public function updateLevelPrompt(UpdateCmsLevelPromptRequest $request, MathLevel $level): JsonResponse
     {
+        $before = $level->prompt?->toArray() ?? [];
         $prompt = $level->prompt()->updateOrCreate(
             ['level_id' => $level->id],
             [
@@ -589,6 +655,18 @@ class CmsController extends Controller
                 'options_count' => $request->integer('options_count'),
                 'locale' => $request->string('locale')->toString(),
             ]
+        );
+        $this->versions->capture(
+            $level,
+            ['prompt' => $before],
+            ['prompt' => $prompt->toArray()],
+            'Level generation prompt updated'
+        );
+        $this->audit->record(
+            'level.prompt_updated',
+            $level,
+            ['prompt' => $before],
+            ['prompt' => $prompt->toArray()]
         );
 
         return response()->json([

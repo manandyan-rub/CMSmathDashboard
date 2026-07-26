@@ -1,309 +1,293 @@
-﻿<script setup>
-import ExplanationsPage from './formulas/ExplanationsPage.vue';
-import ExplanationModal from './formulas/partials/ExplanationModal.vue';
-import FormulaModal from './formulas/partials/FormulaModal.vue';
-import FormulasPage from './formulas/FormulasPage.vue';
-import GenerationLogsPage from './generation-logs/GenerationLogsPage.vue';
+<script setup lang="ts">
+import { computed } from 'vue';
+import AiPromptStudio from './ai/AiPromptStudio.vue';
+import AiUsagePage from './ai/AiUsagePage.vue';
+import ExerciseStudioPage from './exercise-studio/ExerciseStudioPage.vue';
+import FormulaExplanationsManager from './formulas/FormulaExplanationsManager.vue';
+import HallOfFamePage from './gamification/HallOfFamePage.vue';
+import GenerationLogsManager from './generation-logs/GenerationLogsManager.vue';
 import CmsSidebar from './layout/CmsSidebar.vue';
 import CmsTopbar from './layout/CmsTopbar.vue';
-import LevelModal from './levels/partials/LevelModal.vue';
-import LevelsPage from './levels/LevelsPage.vue';
-import SettingsPage from './settings/SettingsPage.vue';
-import ComingSoonSection from './shared/ComingSoonSection.vue';
+import LevelPromptsPage from './levels/LevelPromptsPage.vue';
+import LocalizationPage from './localization/LocalizationPage.vue';
+import AuditLogPage from './platform/AuditLogPage.vue';
+import PlatformSettingsPage from './platform/PlatformSettingsPage.vue';
+import ExportsPage from './platform/ExportsPage.vue';
+import ResourceManagerPage from './resources/ResourceManagerPage.vue';
+import AccountSettingsPage from './settings/AccountSettingsPage.vue';
+import EntityAnalyticsPanel from './shared/EntityAnalyticsPanel.vue';
 import StatsPage from './stats/StatsPage.vue';
-import UserModal from './users/partials/UserModal.vue';
 import UsersPage from './users/UsersPage.vue';
 import { useCmsDashboard } from './useCmsDashboard';
 
 const {
-    sections,
-    roleOptions,
-    formulaLocales,
-    aiUsage,
     activeSection,
     locale,
     theme,
     themeClass,
-    searchUsers,
-    searchFormulas,
-    searchExplanations,
-    cacheFilter,
-    generationLogsLoading,
-    generationLogDetailLoading,
-    globalLoading,
-    usersLoading,
-    formulasLoading,
-    levelsLoading,
-    explanationsLoading,
+    meta,
+    loading,
+    dashboardLoading,
+    dashboard,
+    dateFilter,
     errorMessage,
     successMessage,
-    overview,
-    usersState,
-    formulasState,
-    levelsState,
-    explanationsState,
-    generationLogsState,
-    showUserModal,
-    userSubmitting,
-    userForm,
-    showFormulaModal,
-    formulaSubmitting,
-    formulaForm,
-    showLevelModal,
-    levelSubmitting,
-    levelPreviewLoading,
-    levelForm,
-    levelPreview,
-    showExplanationModal,
-    explanationSubmitting,
-    explanationLocaleLoading,
-    explanationForm,
-    selectedSectionLabel,
-    newActionLabel,
-    isUserEditing,
-    isFormulaEditing,
-    isLevelEditing,
-    isUsersSection,
-    isFormulasSection,
-    isLevelsSection,
-    isGenerationLogsSection,
-    isReportsSection,
-    isOverviewSection,
-    showNewAction,
-    isSettingsSection,
-    cacheFilterOptions,
-    formulaCategoryOptions,
-    topKpis,
+    refreshToken,
+    searchQuery,
+    searchGroups,
+    searchLoading,
+    navigationGroups,
+    groupLabel,
+    sectionLabel,
+    resourceKey,
+    t,
+    showError,
+    showSuccess,
+    clearAlerts,
     bootstrap,
-    loadUsers,
-    loadFormulas,
-    loadExplanations,
-    loadGenerationLogs,
-    loadLevels,
-    openCreateUser,
-    openEditUser,
-    saveUser,
-    deleteUser,
-    openCreateFormula,
-    openEditFormula,
-    saveFormula,
-    deleteFormula,
-    handleNewAction,
-    openEditExplanation,
-    changeExplanationLocale,
-    addExplanationStep,
-    removeExplanationStep,
-    saveExplanation,
-    openEditLevel,
-    previewLevelPrompt,
-    saveLevel,
-    currentUser,
-    generationLogFilters,
-    generationLogStatusOptions,
-    generationLogDetail,
-    selectedGenerationLogId,
-    openGenerationLog,
-    profileForm,
-    profileErrors,
-    profileSubmitting,
-    passwordForm,
-    passwordErrors,
-    passwordSubmitting,
-    saveProfile,
-    savePassword,
-    setTheme,
+    loadDashboard,
+    refreshCurrentSection,
+    selectSearchResult,
     toggleTheme,
-    formatDate,
-    formatTimestamp,
-    formatDuration,
-    generationLogStatusTone,
-    renderFormulaMarkup,
     logout,
 } = useCmsDashboard();
+
+const userRole = computed(() => {
+    if (activeSection.value === 'lecturers') return 'lecturer';
+    if (activeSection.value === 'administrators') return 'admin';
+    return 'student';
+});
+
+const aiUsage = computed(() => ({
+    generations: dashboard.value.ai_usage?.generations ?? dashboard.value.summary?.ai_generations ?? 0,
+    failed: dashboard.value.ai_usage?.failed ?? dashboard.value.summary?.ai_generation_failures ?? 0,
+    success_rate: dashboard.value.ai_usage?.success_rate ?? 0,
+}));
+
+function setTheme(value: string) {
+    theme.value = value === 'light' ? 'light' : 'dark';
+}
 </script>
 
 <template>
-    <div class="cms-theme-shell relative min-h-screen overflow-hidden bg-slate-950 text-slate-100" :class="themeClass">
-        <div class="cms-theme-aura pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(99,102,241,0.22),transparent_38%),radial-gradient(circle_at_100%_0%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(14,165,233,0.12),transparent_32%)]"></div>
-
-        <div class="relative z-10 mx-auto flex min-h-screen max-w-[1900px]">
+    <div class="cms-theme-shell min-h-screen bg-[#06111d] text-slate-100" :class="themeClass">
+        <div class="mx-auto flex min-h-screen max-w-[1920px]">
             <CmsSidebar
                 v-model:active-section="activeSection"
-                :sections="sections"
+                :groups="navigationGroups"
                 :ai-usage="aiUsage"
-                :current-user="currentUser"
+                :current-user="meta.user"
+                :t="t"
                 @logout="logout"
             />
 
-            <main class="flex-1 p-4 sm:p-6 lg:p-8">
+            <main class="min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8">
                 <CmsTopbar
                     v-model:locale="locale"
-                    :selected-section-label="selectedSectionLabel"
-                    :new-action-label="newActionLabel"
-                    :show-new-action="showNewAction"
+                    v-model:search-query="searchQuery"
+                    :group-label="groupLabel"
+                    :section-label="sectionLabel"
+                    :locales="meta.locales"
                     :theme="theme"
-                    @refresh="bootstrap"
+                    :search-groups="searchGroups"
+                    :search-loading="searchLoading"
+                    :t="t"
+                    @refresh="refreshCurrentSection"
                     @toggle-theme="toggleTheme"
-                    @new-action="handleNewAction"
+                    @select-search="selectSearchResult"
                 />
 
-                <div v-if="errorMessage" class="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                <div v-if="errorMessage" class="mb-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
                     {{ errorMessage }}
                 </div>
-
-                <div
-                    v-if="successMessage"
-                    class="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
-                >
+                <div v-if="successMessage" class="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
                     {{ successMessage }}
                 </div>
 
+                <div v-if="loading" class="grid min-h-[60vh] place-items-center text-sm text-slate-500">
+                    {{ t('common.loading') }}
+                </div>
+
                 <StatsPage
-                    v-if="isOverviewSection"
-                    :overview="overview"
-                    :top-kpis="topKpis"
-                    :render-formula-markup="renderFormulaMarkup"
-                    @open-formulas="activeSection = 'formulas'"
+                    v-else-if="activeSection === 'dashboard'"
+                    :dashboard="dashboard"
+                    :loading="dashboardLoading"
+                    :date-filter="dateFilter"
+                    :t="t"
+                    @reload="loadDashboard"
                 />
 
                 <UsersPage
-                    v-else-if="isUsersSection"
-                    v-model:search="searchUsers"
-                    :users-state="usersState"
-                    :users-loading="usersLoading"
-                    :format-date="formatDate"
-                    @search="loadUsers(1)"
-                    @create="openCreateUser"
-                    @edit="openEditUser"
-                    @delete="deleteUser"
-                    @page="loadUsers"
-                />
-
-                <FormulasPage
-                    v-else-if="isFormulasSection"
-                    v-model:search="searchFormulas"
-                    :formulas-state="formulasState"
-                    :formulas-loading="formulasLoading"
+                    v-else-if="['students', 'lecturers', 'administrators'].includes(activeSection)"
+                    :role="userRole"
                     :locale="locale"
-                    :format-date="formatDate"
-                    :render-formula-markup="renderFormulaMarkup"
-                    @search="loadFormulas(1)"
-                    @create="openCreateFormula"
-                    @edit="openEditFormula"
-                    @delete="deleteFormula"
-                    @page="loadFormulas"
+                    :countries="meta.countries"
+                    :locales="meta.locales"
+                    :permissions="meta.permissions"
+                    :granted-permissions="meta.user.permissions"
+                    :refresh-token="refreshToken"
+                    :t="t"
+                    :show-error="showError"
+                    :show-success="showSuccess"
                 />
 
-                <ExplanationsPage
-                    v-else-if="isReportsSection"
-                    v-model:search="searchExplanations"
-                    v-model:cache-filter="cacheFilter"
-                    :explanations-state="explanationsState"
-                    :explanations-loading="explanationsLoading"
-                    :cache-filter-options="cacheFilterOptions"
+                <LevelPromptsPage
+                    v-else-if="activeSection === 'level-prompts'"
                     :locale="locale"
-                    :render-formula-markup="renderFormulaMarkup"
-                    @search="loadExplanations(1)"
-                    @reload="loadExplanations(1)"
-                    @edit="openEditExplanation"
-                    @page="loadExplanations"
+                    :locales="meta.locales"
+                    :refresh-token="refreshToken"
+                    :can-manage="meta.user.permissions.includes('levels.manage')"
+                    :clear-alerts="clearAlerts"
+                    :show-error="showError"
+                    :show-success="showSuccess"
+                    :reload-dashboard="loadDashboard"
                 />
 
-                <LevelsPage
-                    v-else-if="isLevelsSection"
-                    :levels-state="levelsState"
-                    :levels-loading="levelsLoading"
-                    @reload="loadLevels"
-                    @edit="openEditLevel"
+                <FormulaExplanationsManager
+                    v-else-if="activeSection === 'formula-explanations'"
+                    :locale="locale"
+                    :locales="meta.locales"
+                    :refresh-token="refreshToken"
+                    :can-manage="meta.user.permissions.includes('formulas.manage')"
+                    :clear-alerts="clearAlerts"
+                    :show-error="showError"
+                    :show-success="showSuccess"
                 />
 
-                <GenerationLogsPage
-                    v-else-if="isGenerationLogsSection"
-                    :generation-logs-state="generationLogsState"
-                    :generation-logs-loading="generationLogsLoading"
-                    :generation-log-detail-loading="generationLogDetailLoading"
-                    :generation-log-filters="generationLogFilters"
-                    :generation-log-status-options="generationLogStatusOptions"
-                    :generation-log-detail="generationLogDetail"
-                    :selected-generation-log-id="selectedGenerationLogId"
-                    :format-timestamp="formatTimestamp"
-                    :format-duration="formatDuration"
-                    :status-tone="generationLogStatusTone"
-                    @reload="loadGenerationLogs(1)"
-                    @open="openGenerationLog"
-                    @page="loadGenerationLogs"
+                <ExerciseStudioPage
+                    v-else-if="['documents', 'moderation'].includes(activeSection)"
+                    :mode="activeSection === 'moderation' ? 'moderation' : 'documents'"
+                    :refresh-token="refreshToken"
+                    :can-moderate="meta.user.permissions.includes('exercise_documents.moderate')"
+                    :t="t"
+                    :show-error="showError"
+                    :show-success="showSuccess"
                 />
 
-                <SettingsPage
-                    v-else-if="isSettingsSection"
-                    :current-user="currentUser"
-                    :profile-form="profileForm"
-                    :profile-errors="profileErrors"
-                    :profile-submitting="profileSubmitting"
-                    :password-form="passwordForm"
-                    :password-errors="passwordErrors"
-                    :password-submitting="passwordSubmitting"
-                    :theme="theme"
-                    :format-date="formatDate"
-                    @save-profile="saveProfile"
-                    @save-password="savePassword"
-                    @set-theme="setTheme"
+                <GenerationLogsManager
+                    v-else-if="activeSection === 'generation-logs'"
+                    :refresh-token="refreshToken"
+                    :clear-alerts="clearAlerts"
+                    :show-error="showError"
                 />
 
-                <ComingSoonSection v-else :selected-section-label="selectedSectionLabel" />
+                <template v-else-if="activeSection === 'ai-prompts'">
+                    <ResourceManagerPage
+                        resource-key="ai-prompts"
+                        :locale="locale"
+                        :refresh-token="refreshToken"
+                        :permissions="meta.user.permissions"
+                        :t="t"
+                        :show-error="showError"
+                        :show-success="showSuccess"
+                    />
+                    <AiPromptStudio
+                        :refresh-token="refreshToken"
+                        :permissions="meta.user.permissions"
+                        :show-error="showError"
+                        :show-success="showSuccess"
+                    />
+                </template>
 
-                <div v-if="globalLoading" class="mt-4 text-sm text-slate-400">Syncing CMS data...</div>
+                <template v-else-if="activeSection === 'levels'">
+                    <ResourceManagerPage
+                        resource-key="levels"
+                        :locale="locale"
+                        :refresh-token="refreshToken"
+                        :permissions="meta.user.permissions"
+                        :t="t"
+                        :show-error="showError"
+                        :show-success="showSuccess"
+                    />
+                    <EntityAnalyticsPanel type="levels" :refresh-token="refreshToken" :show-error="showError" />
+                </template>
+
+                <AiUsagePage
+                    v-else-if="['ai-usage', 'ai-failures'].includes(activeSection)"
+                    :failures-only="activeSection === 'ai-failures'"
+                    :refresh-token="refreshToken"
+                    :permissions="meta.user.permissions"
+                    :t="t"
+                    :show-error="showError"
+                    :show-success="showSuccess"
+                />
+
+                <LocalizationPage
+                    v-else-if="['translations', 'missing-translations'].includes(activeSection)"
+                    :missing-only="activeSection === 'missing-translations'"
+                    :refresh-token="refreshToken"
+                    :can-manage="meta.user.permissions.includes('translations.manage')"
+                    :t="t"
+                    :show-error="showError"
+                    :show-success="showSuccess"
+                />
+
+                <HallOfFamePage
+                    v-else-if="activeSection === 'hall-of-fame'"
+                    :refresh-token="refreshToken"
+                    :t="t"
+                    :show-error="showError"
+                />
+
+                <template v-else-if="activeSection === 'games'">
+                    <ResourceManagerPage
+                        resource-key="games"
+                        :locale="locale"
+                        :refresh-token="refreshToken"
+                        :permissions="meta.user.permissions"
+                        :t="t"
+                        :show-error="showError"
+                        :show-success="showSuccess"
+                    />
+                    <EntityAnalyticsPanel type="games" :refresh-token="refreshToken" :show-error="showError" />
+                </template>
+
+                <template v-else-if="activeSection === 'settings'">
+                    <AccountSettingsPage
+                        :theme="theme"
+                        :clear-alerts="clearAlerts"
+                        :show-error="showError"
+                        :show-success="showSuccess"
+                        :set-theme="setTheme"
+                    />
+                    <div class="my-6 border-t border-slate-800"></div>
+                    <PlatformSettingsPage
+                        :refresh-token="refreshToken"
+                        :can-manage="meta.user.permissions.includes('settings.manage')"
+                        :t="t"
+                        :show-error="showError"
+                        :show-success="showSuccess"
+                    />
+                </template>
+
+                <AuditLogPage
+                    v-else-if="activeSection === 'audit-log'"
+                    :refresh-token="refreshToken"
+                    :t="t"
+                    :show-error="showError"
+                />
+
+                <ExportsPage
+                    v-else-if="activeSection === 'exports'"
+                    :permissions="meta.user.permissions"
+                    :show-error="showError"
+                />
+
+                <ResourceManagerPage
+                    v-else-if="resourceKey"
+                    :resource-key="resourceKey"
+                    :locale="locale"
+                    :refresh-token="refreshToken"
+                    :permissions="meta.user.permissions"
+                    :t="t"
+                    :show-error="showError"
+                    :show-success="showSuccess"
+                />
+
+                <div v-else class="rounded-lg border border-slate-800 p-8 text-center text-slate-500">
+                    {{ t('common.empty') }}
+                </div>
             </main>
         </div>
-
-        <UserModal
-            :show="showUserModal"
-            :is-editing="isUserEditing"
-            :form="userForm"
-            :role-options="roleOptions"
-            :submitting="userSubmitting"
-            @close="showUserModal = false"
-            @save="saveUser"
-        />
-
-        <FormulaModal
-            :show="showFormulaModal"
-            :is-editing="isFormulaEditing"
-            :form="formulaForm"
-            :formula-locales="formulaLocales"
-            :formula-category-options="formulaCategoryOptions"
-            :submitting="formulaSubmitting"
-            :render-formula-markup="renderFormulaMarkup"
-            @close="showFormulaModal = false"
-            @save="saveFormula"
-        />
-
-        <ExplanationModal
-            :show="showExplanationModal"
-            :form="explanationForm"
-            :submitting="explanationSubmitting"
-            :locale-loading="explanationLocaleLoading"
-            :formula-locales="formulaLocales"
-            :render-formula-markup="renderFormulaMarkup"
-            @close="showExplanationModal = false"
-            @save="saveExplanation"
-            @change-locale="changeExplanationLocale"
-            @add-step="addExplanationStep"
-            @remove-step="removeExplanationStep"
-        />
-
-        <LevelModal
-            :show="showLevelModal"
-            :form="levelForm"
-            :formula-locales="formulaLocales"
-            :submitting="levelSubmitting"
-            :preview-loading="levelPreviewLoading"
-            :preview-result="levelPreview"
-            :is-editing="isLevelEditing"
-            @close="showLevelModal = false"
-            @preview="previewLevelPrompt"
-            @save="saveLevel"
-        />
     </div>
 </template>
-
