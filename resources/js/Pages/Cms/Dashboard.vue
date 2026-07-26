@@ -70,7 +70,10 @@ function setTheme(value: string) {
 </script>
 
 <template>
-    <div class="cms-theme-shell min-h-screen bg-[#06111d] text-slate-100" :class="themeClass">
+    <div
+        class="cms-theme-shell min-h-screen text-slate-100"
+        :class="[themeClass, theme === 'light' ? 'bg-[#f4f7fb]' : 'bg-[#06111d]']"
+    >
         <div class="mx-auto flex min-h-screen max-w-[1920px]">
             <CmsSidebar
                 v-model:active-section="activeSection"

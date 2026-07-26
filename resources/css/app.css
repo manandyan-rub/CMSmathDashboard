@@ -3,8 +3,9 @@
 @tailwind utilities;
 
 @layer components {
-    .cms-theme-light {
-        background: #f6f8fb !important;
+    .cms-theme-light,
+    .cms-theme-light.cms-theme-shell {
+        background-color: #f4f7fb !important;
         color: #0f172a !important;
     }
 
@@ -14,18 +15,33 @@
     }
 
     .cms-theme-light .bg-slate-950,
+    .cms-theme-light .bg-slate-950\/40,
     .cms-theme-light .bg-slate-950\/35,
     .cms-theme-light .bg-slate-950\/50,
     .cms-theme-light .bg-slate-950\/60,
     .cms-theme-light .bg-slate-950\/70,
+    .cms-theme-light .bg-slate-950\/75,
     .cms-theme-light .bg-slate-900,
+    .cms-theme-light .bg-slate-900\/60,
+    .cms-theme-light .bg-slate-900\/65,
+    .cms-theme-light .bg-slate-900\/70,
     .cms-theme-light .bg-slate-900\/75,
     .cms-theme-light .bg-slate-900\/80 {
         background-color: rgba(255, 255, 255, 0.94) !important;
     }
 
-    .cms-theme-light .fixed.bg-slate-950\/70 {
-        background-color: rgba(15, 23, 42, 0.38) !important;
+    .cms-theme-light .fixed.bg-slate-950\/60,
+    .cms-theme-light .fixed.bg-slate-950\/70,
+    .cms-theme-light .fixed.bg-slate-950\/75 {
+        background-color: rgba(15, 23, 42, 0.46) !important;
+    }
+
+    .cms-theme-light .bg-slate-800\/35 {
+        background-color: rgba(226, 232, 240, 0.55) !important;
+    }
+
+    .cms-theme-light .bg-slate-800\/80 {
+        background-color: rgba(226, 232, 240, 0.9) !important;
     }
 
     .cms-theme-light .bg-slate-800 {
@@ -62,6 +78,7 @@
 
     .cms-theme-light .border-slate-800,
     .cms-theme-light .border-slate-700,
+    .cms-theme-light .border-slate-600,
     .cms-theme-light .border-slate-700\/70,
     .cms-theme-light .border-indigo-400\/20,
     .cms-theme-light .border-indigo-400\/25,
